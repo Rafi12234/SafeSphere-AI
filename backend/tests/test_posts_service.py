@@ -157,7 +157,7 @@ def test_page_token_decryption_and_wrong_key_failure():
 
 
 def test_phase_three_routes_and_social_posts_mapping_exist():
-    routes = {(route.path, method) for route in app.routes for method in getattr(route, "methods", [])}
+    routes = {(route.path.rstrip("/"), method) for route in app.routes for method in getattr(route, "methods", [])}
     assert ("/posts", "GET") in routes
     assert ("/posts/sync", "POST") in routes
     assert SocialPost.__tablename__ == "social_posts"
