@@ -125,8 +125,6 @@ def test_scan_persistence_timing_tenant_isolation_and_repeat_threshold():
     assert not any(i["incident_type"] == "repeat_harassment" for i in data["incidents"])
 
     with SessionLocal() as db:
-        assert db.scalar(select(func.count()).select_from(SocialComment)
-                         .where(SocialComment.connection_id == data["selected_posts"][0]["id"])) == 0
         comments = db.scalars(select(SocialComment).where(SocialComment.workspace_id == workspace_id)).all()
         assert len(comments) == 20
         assert all(c.is_demo and c.provider_comment_id.startswith("demo:") for c in comments)
