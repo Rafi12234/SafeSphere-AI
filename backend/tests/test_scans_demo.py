@@ -118,7 +118,7 @@ def test_scan_input_rejects_empty_or_excessive_posts():
 
 def test_existing_schema_mappings_and_scan_routes():
     routes = {(route.path.rstrip("/"), method) for route in app.routes for method in getattr(route, "methods", [])}
-    assert ("/scans", "POST") in routes
+    assert ("/scans", "POST") in routes, sorted(routes)
     assert ("/scans", "GET") in routes
     assert ("/scans/{scan_id}", "GET") in routes
     assert ("/posts", "GET") in routes
