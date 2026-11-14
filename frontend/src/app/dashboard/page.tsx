@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type Me } from "@/lib/api";
@@ -41,8 +42,8 @@ export default function Dashboard() {
           <p className="mt-2 text-sm text-emerald-300">Real authentication enabled</p>
         </div>
         <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Facebook</p><h2 className="mt-1 text-xl font-bold">Phase 2</h2>
-          <p className="mt-2 text-sm text-slate-300">Page authorization and selection</p>
+          <p className="text-sm text-slate-400">Facebook</p><h2 className="mt-1 text-xl font-bold">Connected Pages</h2>
+          <p className="mt-2 text-sm text-slate-300">Phase 2 authorization + Phase 3 post dashboard</p>
         </div>
         <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
           <p className="text-sm text-slate-400">Scanning</p><h2 className="mt-1 text-xl font-bold">Not yet available</h2>
@@ -50,6 +51,11 @@ export default function Dashboard() {
         </div>
       </div>
       <FacebookPanel canManage={me.role === "owner" || me.role === "admin"} />
+      <section className="mt-6 rounded-xl border border-sky-800 bg-slate-900 p-6">
+        <h2 className="text-xl font-bold">Phase 3 · Facebook Posts</h2>
+        <p className="mt-2 text-sm text-slate-300">View real published Page posts, refresh the cache, and select multiple posts. Scanning is simulated in Phase 4.</p>
+        <Link href="/posts" className="mt-4 inline-block rounded-lg bg-sky-600 px-5 py-2 font-semibold text-white hover:bg-sky-500">View Facebook Posts →</Link>
+      </section>
     </>}
   </main>;
 }
