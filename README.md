@@ -1,71 +1,55 @@
-# SafeSphere AI — Phase 1 Starter
+# SafeSphere AI — Hackathon Demo (Phases 1 + 2)
 
-A runnable foundation aligned with the **SafeSphere AI Demo Scope of Work** and `SafeSphere_AI_Database_Schema_v1.sql`.
+**Official repo:** https://github.com/Rafi12234/SafeSphere-AI
 
-**What works:** registration, login/logout, sessions in HttpOnly cookies, workspace creation and membership, basic Next.js dashboard, FastAPI health checks.
+This package contains the **existing Phase 1 starter with Phase 2 changes** (retain your existing `frontend/package-lock.json`), designed for the `SafeSphere_AI_Database_Schema_v1.sql` PostgreSQL database that was imported into pgAdmin4.
 
-**What is deliberately NOT implemented:** Facebook OAuth, real post retrieval, simulated scans, AI agents, media processing, evidence reports, WhatsApp/Telegram, payment integration. Those are later phases.
+## Implemented
 
-## Prerequisites
-Windows PowerShell, Python 3.12+, Node.js 20.9+, npm, PostgreSQL. Import the existing schema through pgAdmin **before** starting. The FastAPI code never creates tables.
+- **Phase 1:** registration, login/logout, JWT HttpOnly cookie session, user + workspace + owner membership, protected Next.js dashboard, FastAPI health endpoints.
+- **Phase 2:** server-side Facebook Login for Business authorization (configured via `config_id`), one-time hashed OAuth state, authorization code exchange, `/me/accounts` Page discovery, encrypted Page-token storage, Page selection, disconnect, and frontend connection status.
+- **CI:** `.github/workflows/ci.yml` runs mocked-backend unit tests and a Next.js build on push / pull request.
+- **Phase 2 test fallback:** optional `FACEBOOK_MOCK=true` exposes **Try Demo Connection**. This creates a **fictional** Page record (`is_demo=true`) with **no Facebook token**; the UI clearly labels it **Demo Data**.
+- **Future Phase 3:** actual authorized Page post retrieval and selection.
+- **Future Phase 4:** clearly labeled *simulated* comment scans, fake flagged comments, statistics, and repeat authors. No AI or real comment ingestion in this hackathon scope.
+- **Future Phase 5:** deployment and end-to-end acceptance testing.
 
-## 1. Place in repository
-Unzip into your local clone of `Rafi12234/SafeSphere-AI` so `frontend/` and `backend/` are at the root.
+**Not implemented:** Instagram, actual comments ingestion, AI models, media analysis, evidence generation, WhatsApp/Telegram, billing, cybercrime complaint submission, Meta App Review, and any moderation/write actions.
 
-## 2. Backend
-```powershell
-cd backend
-Copy-Item .env.example .env
-# Edit .env: PostgreSQL password in DATABASE_URL (URL-encode special characters) and strong JWT_SECRET
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-```
-In a browser: http://127.0.0.1:8000/health and http://127.0.0.1:8000/health/db . API docs: http://127.0.0.1:8000/docs .
+## Setup instructions
 
-Generate a random JWT secret with:
-```powershell
-py -3 -c "import secrets; print(secrets.token_urlsafe(48))"
-```
+Read **[docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md)** for exact Windows PowerShell commands, Meta prerequisites, environment variables, tests, troubleshooting, and deployment caveats.
 
-## 3. Frontend (another PowerShell terminal)
-```powershell
-cd frontend
-Copy-Item .env.example .env.local
-npm install
-npm run dev
-```
-Browse http://localhost:3000/register . Register an account (password 12+ characters), then refresh the dashboard, log out, and log back in.
+## Important database notes
 
-## 4. Confirm rows in pgAdmin
-```sql
-SELECT id, email, created_at FROM users ORDER BY created_at DESC;
-SELECT id, owner_user_id, name FROM workspaces ORDER BY created_at DESC;
-SELECT workspace_id, user_id, role FROM workspace_memberships;
-```
-Passwords are hashed. Never share `.env` or credentials.
+- The existing PostgreSQL schema is authoritative. The source SQL is included at `database/SafeSphere_AI_Database_Schema_v1.sql` for future reproducibility.
+- If you already created the database in pgAdmin, **do not rerun the SQL**.
+- Phase 2 only adds SQLAlchemy mappings for **existing** `oauth_states`, `social_connections`, and `audit_logs` tables. **No database migration is required.**
+- The current Alembic `0001_baseline` is intentionally empty because the initial schema was imported with pgAdmin. Before deployment to a fresh server, apply the full SQL once and then `alembic stamp head`.
+- **Do not run Alembic `--autogenerate`** until all 22 existing tables are mapped; otherwise it may propose dropping unmapped tables.
 
-## 4a. Record the already-imported schema in Alembic (one-time)
-After you confirm your existing 22 tables, from `backend/` run:
-```powershell
-.\.venv\Scripts\python.exe -m alembic stamp head
-.\.venv\Scripts\python.exe -m alembic current
-```
-This adds only Alembic's version tracking. It does **not** recreate your pgAdmin tables.
-**Do not use `alembic revision --autogenerate` yet:** Phase 1 maps only three tables and autogenerate could incorrectly propose dropping the other 19. Future changes require reviewed manual migrations until the full schema is mapped.
+## Security
 
+- Never commit `.env`, `.env.local`, OAuth codes, Graph API access tokens, JWT secrets, PostgreSQL passwords, or Fernet keys.
+- Production: use HTTPS, `COOKIE_SECURE=true`, correct `APP_ORIGIN`, exact Meta redirect URI, and controlled Meta app access. Restrict runtime log configuration so callback query codes and token-bearing Graph URLs never appear in access/request logs.
+- We use backend-only Meta Graph API calls; access tokens are Fernet-encrypted **before** writing to the database and **never** returned by application endpoints.
+- Existing authentication remains intentionally minimal for hackathon use. Complete rate limiting, CSRF hardening, email verification, password recovery, security review, CI, monitoring, deauthorization/data-deletion policies, and Meta App Review remain needed for a publicly available product.
 
-## 5. Commit
-```powershell
-git add .
-git status
-git commit -m "Phase 1: Next.js FastAPI PostgreSQL authentication foundation"
-git push origin main
-```
-Check that `.env` files and `.venv/` are NOT staged.
+## API endpoints
 
-## Security / future work
-- Backend validates signed session tokens; cookie presence in Next.js `proxy.ts` is **only an optimistic UI redirect**, not authorization.
-- Frontend API traffic is proxied through the Next.js domain; when deploying, set `BACKEND_INTERNAL_URL` to your Railway backend, `APP_ORIGIN` to the public frontend origin, and `COOKIE_SECURE=true` on HTTPS.
-- Password reset, email verification, rate limiting, MFA, additional sessions and CSRF hardening are **production follow-up work**; do not claim they are implemented.
-- Existing schema is the baseline; use **Alembic migrations** for future changes, not `create_all()` or re-running table creation.
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/health` | API health |
+| GET | `/health/db` | PostgreSQL check |
+| POST | `/auth/register` | Register and create workspace |
+| POST | `/auth/login` | Log in |
+| POST | `/auth/logout` | Log out |
+| GET | `/auth/me` | Current user/workspace |
+| GET | `/facebook/connect` | Redirect to Meta authorization |
+| GET | `/facebook/callback` | Verify state, exchange code, save authorized Pages |
+| GET | `/facebook/connection` | List Page connections (never returns tokens) |
+| POST | `/facebook/select-page` | Choose a Page for Phase 3 |
+| DELETE | `/facebook/connection?connection_id=UUID` | Clear a Page's locally stored token |
+| POST | `/facebook/demo-connect` | Optional fictional Page (only with `FACEBOOK_MOCK=true`) |
+
+The frontend calls these through `/api/*` using `frontend/next.config.ts` rewrites.
