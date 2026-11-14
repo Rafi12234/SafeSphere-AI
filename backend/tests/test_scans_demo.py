@@ -119,6 +119,15 @@ def test_scan_input_rejects_empty_or_excessive_posts():
 def test_existing_schema_mappings_and_scan_routes():
     routes = {(route.path.rstrip("/"), method) for route in app.routes for method in getattr(route, "methods", [])}
     print("FULL REGISTERED ROUTES:", sorted(routes))
+    from app.auth import router as auth_router
+    from app.facebook import router as facebook_router
+    from app.posts import router as posts_router
+    from app.scans import router as scans_router
+    print("SUBROUTERS:", [(name, [(rt.path, sorted(rt.methods or [])) for rt in router.routes])
+                          for name, router in [("auth", auth_router), ("facebook", facebook_router),
+                                               ("posts", posts_router), ("scans", scans_router)]])
+    import fastapi
+    print("FASTAPI VERSION:", fastapi.__version__)
     assert ("/scans", "POST") in routes, sorted(routes)
     assert ("/scans", "GET") in routes
     assert ("/scans/{scan_id}", "GET") in routes
