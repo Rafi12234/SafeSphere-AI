@@ -1,4 +1,4 @@
-# SafeSphere AI — Hackathon Demo (Phases 1 + 2)
+# SafeSphere AI — Hackathon Demo (Phases 1–3)
 
 **Official repo:** https://github.com/Rafi12234/SafeSphere-AI
 
@@ -10,7 +10,7 @@ This package contains the **existing Phase 1 starter with Phase 2 changes** (ret
 - **Phase 2:** server-side Facebook Login for Business authorization (configured via `config_id`), one-time hashed OAuth state, authorization code exchange, `/me/accounts` Page discovery, encrypted Page-token storage, Page selection, disconnect, and frontend connection status.
 - **CI:** `.github/workflows/ci.yml` runs mocked-backend unit tests and a Next.js build on push / pull request.
 - **Phase 2 test fallback:** optional `FACEBOOK_MOCK=true` exposes **Try Demo Connection**. This creates a **fictional** Page record (`is_demo=true`) with **no Facebook token**; the UI clearly labels it **Demo Data**.
-- **Future Phase 3:** actual authorized Page post retrieval and selection.
+- **Phase 3:** read-only authorized published Facebook Page post retrieval via Graph API, secure backend token decryption, PostgreSQL post caching, cursor-based older-post sync, pagination, and a multi-select posts dashboard. The selected posts are not yet scanned.
 - **Future Phase 4:** clearly labeled *simulated* comment scans, fake flagged comments, statistics, and repeat authors. No AI or real comment ingestion in this hackathon scope.
 - **Future Phase 5:** deployment and end-to-end acceptance testing.
 
@@ -18,13 +18,13 @@ This package contains the **existing Phase 1 starter with Phase 2 changes** (ret
 
 ## Setup instructions
 
-Read **[docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md)** for exact Windows PowerShell commands, Meta prerequisites, environment variables, tests, troubleshooting, and deployment caveats.
+Read **[docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md)** for Facebook connection setup, then **[docs/PHASE3_SETUP.md](docs/PHASE3_SETUP.md)** for post retrieval, required local steps, Meta permission caveats and acceptance tests.
 
 ## Important database notes
 
 - The existing PostgreSQL schema is authoritative. The source SQL is included at `database/SafeSphere_AI_Database_Schema_v1.sql` for future reproducibility.
 - If you already created the database in pgAdmin, **do not rerun the SQL**.
-- Phase 2 only adds SQLAlchemy mappings for **existing** `oauth_states`, `social_connections`, and `audit_logs` tables. **No database migration is required.**
+- Phases 2–3 map existing `oauth_states`, `social_connections`, `audit_logs` and `social_posts` tables. **No new database migration is required.**
 - The current Alembic `0001_baseline` is intentionally empty because the initial schema was imported with pgAdmin. Before deployment to a fresh server, apply the full SQL once and then `alembic stamp head`.
 - **Do not run Alembic `--autogenerate`** until all 22 existing tables are mapped; otherwise it may propose dropping unmapped tables.
 
@@ -51,5 +51,8 @@ Read **[docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md)** for exact Windows PowerShe
 | POST | `/facebook/select-page` | Choose a Page for Phase 3 |
 | DELETE | `/facebook/connection?connection_id=UUID` | Clear a Page's locally stored token |
 | POST | `/facebook/demo-connect` | Optional fictional Page (only with `FACEBOOK_MOCK=true`) |
+| GET | `/posts?limit=24&offset=0` | List cached posts for the selected Page/workspace |
+| POST | `/posts/sync` with `{"mode":"latest"}` | Read newest Page-owned published posts from Meta and cache them |
+| POST | `/posts/sync` with `{"mode":"older"}` | Fetch an older batch using the server's stored Graph cursor |
 
 The frontend calls these through `/api/*` using `frontend/next.config.ts` rewrites.
