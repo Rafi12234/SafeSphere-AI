@@ -9,6 +9,26 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: safesphere_ci
+          POSTGRES_PASSWORD: ci-only-test-password
+          POSTGRES_DB: safesphere_ai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U safesphere_ci -d safesphere_ai"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 6
+    env:
+      DATABASE_URL: postgresql+psycopg://safesphere_ci:ci-only-test-password@localhost:5432/safesphere_ai
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-characters
+      APP_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: 'false'
+      SAFESPHERE_RUN_DB_TESTS: '1'
     defaults:
       run:
         working-directory: backend
@@ -23,9 +43,13 @@ jobs:
             backend/requirements-dev.txt
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
+      - name: Import authoritative existing PostgreSQL schema
+        env:
+          PGPASSWORD: ci-only-test-password
+        run: psql -h localhost -U safesphere_ci -d safesphere_ai -v ON_ERROR_STOP=1 -f ../database/SafeSphere_AI_Database_Schema_v1.sql
       - name: Compile Python
         run: python -m compileall -q app
-      - name: Unit tests (mocked Meta, no real tokens)
+      - name: Backend unit and disposable PostgreSQL integration tests
         run: python -m pytest -q
 
   frontend:
