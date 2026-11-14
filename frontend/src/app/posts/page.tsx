@@ -122,6 +122,23 @@ export default function PostsPage() {
     }
   }
 
+  async function startScan() {
+    if (selected.length < 1 || selected.length > 20 || busy || !canManage) return;
+    setBusy("scan");
+    setError("");
+    setNotice("");
+    try {
+      const result = await api<{ id: string }>("/scans", {
+        method: "POST",
+        body: JSON.stringify({ post_ids: selected }),
+      });
+      router.push(`/scans/${result.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start demo scan.");
+      setBusy("");
+    }
+  }
+
   async function loadMore() {
     if (!data || busy) return;
     setBusy("more");
@@ -144,7 +161,7 @@ export default function PostsPage() {
           </Link>
           <h1 className="mt-3 text-3xl font-bold">Facebook Posts</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Phase 3 · Read-only published posts · Choose posts for simulated scanning in Phase 4
+            Phases 3–4 · Real published posts · Fictional comments and simulated scan results
           </p>
         </div>
         {data?.page?.is_demo && (
@@ -341,18 +358,19 @@ export default function PostsPage() {
               <div>
                 <h2 className="font-bold">Selected posts: {selected.length}</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Your selection is prepared for Phase 4. No real comments or AI analysis are performed.
+                  Start a scripted demo scan of the selected posts. All comments and results are fictional; no Facebook comments or AI models are used.
                 </p>
               </div>
-              <button type="button" disabled
-                title="Simulated scanning will be implemented in Phase 4"
-                className="cursor-not-allowed rounded-lg bg-slate-700 px-5 py-2 font-semibold text-slate-300 opacity-60">
-                Start Scan — Phase 4
+              <button type="button" onClick={startScan}
+                disabled={!canManage || selected.length === 0 || selected.length > 20 || Boolean(busy)}
+                title="Creates clearly labeled fictional demo comments and scripted classifications. Does not fetch Facebook comments."
+                className="rounded-lg bg-sky-600 px-5 py-2 font-bold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400">
+                {busy === "scan" ? "Starting demo…" : `Start Simulated Scan (${selected.length})`}
               </button>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Selection is temporary while this page is open. Phase 4 will persist selected posts with each simulated scan.
-              Comment counts are intentionally not fetched or invented.
+              A scan saves the selected post IDs and creates fictional demonstration comments in PostgreSQL.
+              Maximum 20 posts per scan. No genuine comment count is fetched or estimated from Facebook.
             </p>
           </section>
         </>
