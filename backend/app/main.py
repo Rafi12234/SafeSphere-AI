@@ -7,6 +7,7 @@ from fastapi import Depends
 
 from .auth import router as auth_router
 from .facebook import router as facebook_router
+from .posts import router as posts_router
 from .config import get_settings
 from .db import get_db
 
@@ -39,3 +40,4 @@ def db_health(db: Session = Depends(get_db)):
 
 app.include_router(auth_router)
 app.include_router(facebook_router)
+app.include_router(posts_router)
