@@ -104,3 +104,34 @@ class AuditLog(Base):
     object_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+# Phase 3: exact mapping of the existing 06. social_posts table.
+# This does not create a table or alter the imported PostgreSQL schema.
+from sqlalchemy import BigInteger
+
+
+class SocialPost(Base):
+    __tablename__ = "social_posts"
+    __table_args__ = (
+        UniqueConstraint("connection_id", "provider_post_id", name="uq_social_post_provider"),
+        ForeignKeyConstraint(
+            ["connection_id", "workspace_id"],
+            ["social_connections.id", "social_connections.workspace_id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    provider_post_id: Mapped[str] = mapped_column(Text, nullable=False)
+    caption: Mapped[str | None] = mapped_column(Text)
+    post_type: Mapped[str] = mapped_column(Text, nullable=False, server_default="unknown")
+    thumbnail_url: Mapped[str | None] = mapped_column(Text)
+    permalink: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    comment_count: Mapped[int | None] = mapped_column(BigInteger)
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
