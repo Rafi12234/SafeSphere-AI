@@ -9,9 +9,10 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.db import SessionLocal
+from app.db import get_engine
 from app.main import app
 from app.models import (
     Incident, Scan, ScanFinding, SocialAuthor, SocialComment,
@@ -49,7 +50,7 @@ def new_test_account() -> tuple[TestClient, UUID]:
 def seed_page_and_posts(workspace_id: UUID, count: int = 3) -> list[UUID]:
     connection_id = uuid4()
     post_ids = [uuid4() for _ in range(count)]
-    with SessionLocal() as db:
+    with Session(get_engine()) as db:
         db.add(SocialConnection(
             id=connection_id,
             workspace_id=workspace_id,
@@ -78,7 +79,7 @@ def seed_page_and_posts(workspace_id: UUID, count: int = 3) -> list[UUID]:
 
 
 def complete_clock_in_database(scan_id: UUID) -> None:
-    with SessionLocal() as db:
+    with Session(get_engine()) as db:
         scan = db.get(Scan, scan_id)
         assert scan is not None
         scan.started_at = datetime.now(timezone.utc) - timedelta(seconds=45)
@@ -124,7 +125,7 @@ def test_scan_persistence_timing_tenant_isolation_and_repeat_threshold():
     assert any(i["incident_type"] == "critical_threat" for i in data["incidents"])
     assert not any(i["incident_type"] == "repeat_harassment" for i in data["incidents"])
 
-    with SessionLocal() as db:
+    with Session(get_engine()) as db:
         comments = db.scalars(select(SocialComment).where(SocialComment.workspace_id == workspace_id)).all()
         assert len(comments) == 20
         assert all(c.is_demo and c.provider_comment_id.startswith("demo:") for c in comments)
@@ -156,7 +157,7 @@ def test_scan_persistence_timing_tenant_isolation_and_repeat_threshold():
     assert summary["statistics"]["fictional_comments"] == 30
     assert summary["statistics"]["repeat_incidents"] >= 1
     assert any(i["incident_type"] == "repeat_harassment" for i in summary["incidents"])
-    with SessionLocal() as db:
+    with Session(get_engine()) as db:
         incidents = db.scalars(select(Incident).where(Incident.scan_id == next_id)).all()
         assert all(i.is_demo for i in incidents)
         authors = db.scalars(select(SocialAuthor).where(SocialAuthor.workspace_id == workspace_id)).all()
