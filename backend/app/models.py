@@ -135,3 +135,128 @@ class SocialPost(Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+# Phase 4: mapped to existing demo-scan tables; no CREATE TABLE or migrations.
+# SQL constraints and FKs in the imported schema remain authoritative.
+from sqlalchemy import Integer
+
+
+class SocialAuthor(Base):
+    __tablename__ = "social_authors"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    provider_author_id: Mapped[str | None] = mapped_column(Text)
+    username: Mapped[str | None] = mapped_column(Text)
+    display_name: Mapped[str | None] = mapped_column(Text)
+    avatar_url: Mapped[str | None] = mapped_column(Text)
+    identity_quality: Mapped[str] = mapped_column(Text, nullable=False, server_default="insufficient")
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class SocialComment(Base):
+    __tablename__ = "social_comments"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    post_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    author_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    parent_comment_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    provider_comment_id: Mapped[str | None] = mapped_column(Text)
+    comment_text: Mapped[str | None] = mapped_column(Text)
+    content_type: Mapped[str] = mapped_column(Text, nullable=False, server_default="text")
+    language_hint: Mapped[str | None] = mapped_column(Text)
+    permalink: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_status: Mapped[str] = mapped_column(Text, nullable=False, server_default="available")
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Scan(Base):
+    __tablename__ = "scans"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    initiated_by: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    scan_mode: Mapped[str] = mapped_column(Text, nullable=False, server_default="simulated")
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="running")
+    demo_duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="20")
+    estimated_comment_count: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    processed_comment_count: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failure_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ScanPost(Base):
+    __tablename__ = "scan_posts"
+
+    scan_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ScanFinding(Base):
+    __tablename__ = "scan_findings"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    scan_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    post_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    comment_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    primary_label: Mapped[str] = mapped_column(Text, nullable=False)
+    labels: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
+    severity: Mapped[str] = mapped_column(Text, nullable=False, server_default="low")
+    language_code: Mapped[str] = mapped_column(Text, nullable=False, server_default="unknown")
+    reason_code: Mapped[str | None] = mapped_column(Text)
+    explanation: Mapped[str | None] = mapped_column(Text)
+    source_type: Mapped[str] = mapped_column(Text, nullable=False, server_default="demo_fixture")
+    model_name: Mapped[str | None] = mapped_column(Text)
+    model_version: Mapped[str | None] = mapped_column(Text)
+    review_status: Mapped[str] = mapped_column(Text, nullable=False, server_default="unreviewed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    scan_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    author_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    incident_type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="flagged")
+    max_severity: Mapped[str] = mapped_column(Text, nullable=False, server_default="medium")
+    flagged_comment_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    affected_post_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    summary: Mapped[str | None] = mapped_column(Text)
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class IncidentFinding(Base):
+    __tablename__ = "incident_findings"
+
+    incident_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    finding_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    scan_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    connection_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
