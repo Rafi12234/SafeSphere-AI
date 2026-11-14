@@ -46,15 +46,19 @@ export default function Dashboard() {
           <p className="mt-2 text-sm text-slate-300">Phase 2 authorization + Phase 3 post dashboard</p>
         </div>
         <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Scanning</p><h2 className="mt-1 text-xl font-bold">Not yet available</h2>
-          <p className="mt-2 text-sm text-slate-300">Simulated analysis in Phase 4</p>
+          <p className="text-sm text-slate-400">Scanning</p><h2 className="mt-1 text-xl font-bold">Phase 4 · Demo</h2>
+          <p className="mt-2 text-sm text-amber-200">Fictional comments and scripted findings only</p>
         </div>
       </div>
       <FacebookPanel canManage={me.role === "owner" || me.role === "admin"} />
+      <div className="mt-5 rounded-lg border border-amber-700/70 bg-amber-950/20 p-4 text-sm text-amber-200">Phase 4 results are scripted DEMO DATA only. No genuine Facebook comments are collected or analyzed.</div>
       <section className="mt-6 rounded-xl border border-sky-800 bg-slate-900 p-6">
         <h2 className="text-xl font-bold">Phase 3 · Facebook Posts</h2>
         <p className="mt-2 text-sm text-slate-300">View real published Page posts, refresh the cache, and select multiple posts. Scanning is simulated in Phase 4.</p>
-        <Link href="/posts" className="mt-4 inline-block rounded-lg bg-sky-600 px-5 py-2 font-semibold text-white hover:bg-sky-500">View Facebook Posts →</Link>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link href="/posts" className="inline-block rounded-lg bg-sky-600 px-5 py-2 font-semibold text-white hover:bg-sky-500">View Facebook Posts →</Link>
+          <Link href="/scans" className="inline-block rounded-lg border border-amber-700 px-5 py-2 font-semibold text-amber-200 hover:bg-amber-950/40">Simulated Scan History</Link>
+        </div>
       </section>
     </>}
   </main>;
