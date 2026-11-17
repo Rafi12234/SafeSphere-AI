@@ -129,3 +129,32 @@ def test_meta_error_never_exposes_sensitive_raw_response():
             assert exc.status == 400
         else:
             raise AssertionError("Expected MetaAPIError")
+
+
+
+def test_page_only_discovery_rejects_profile_only_account():
+    """Facebook Login authenticates a person, but /me/accounts must return
+    an authorized Page AND Page token. Personal profile identity is never saved."""
+    s = settings()
+    requests_seen = []
+
+    def personal_only(request: httpx.Request):
+        requests_seen.append(request)
+        # A personal profile is NOT a Page, and cannot supply a Page token.
+        return httpx.Response(200, json={"data": [
+            {"id": "111111", "name": "Personal Facebook Account"}
+        ]})
+
+    with httpx.Client(transport=httpx.MockTransport(personal_only)) as client:
+        assert discover_pages(client, s, "user-token") == []
+    assert len(requests_seen) == 1
+    assert requests_seen[0].url.path.endswith("/me/accounts")
+
+
+def test_page_discovery_empty_page_list_returns_no_connections():
+    s = settings()
+
+    with httpx.Client(transport=httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"data": []})
+    )) as client:
+        assert discover_pages(client, s, "user-token") == []
