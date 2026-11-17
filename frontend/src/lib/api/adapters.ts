@@ -1,5 +1,3 @@
-import { generateDeterministicScan } from "@/lib/seed/generator";
-
 export interface UserViewModel {
   id: string;
   email: string;
@@ -78,6 +76,7 @@ export interface ScanViewModel {
   startedAt: string;
   completedAt: string | null;
   durationSeconds: number;
+  selectedPostsCount: number;
   selectedPosts: Array<{
     id: string;
     providerPostId: string;
@@ -140,9 +139,6 @@ export function adaptPost(raw: any): PostViewModel {
 }
 
 export function adaptScan(raw: any): ScanViewModel {
-  const forceSeed = process.env.NEXT_PUBLIC_FORCE_SEED === "true";
-  const isCompleted = raw.status === "completed";
-
   const selectedPosts = (raw.selected_posts || []).map((p: any) => ({
     id: p.id,
     providerPostId: p.provider_post_id || p.id,
@@ -150,64 +146,8 @@ export function adaptScan(raw: any): ScanViewModel {
     postIsDemo: Boolean(p.post_is_demo),
   }));
 
-  // If completed and findings are missing or forceSeed is enabled, generate deterministic seed
-  if (isCompleted && (forceSeed || !raw.findings || raw.findings.length === 0)) {
-    const seed = generateDeterministicScan(raw.id, selectedPosts);
-    return {
-      id: raw.id,
-      status: "completed",
-      progressPercent: 100,
-      estimatedComments: seed.estimated_demo_comments,
-      processedComments: seed.animated_demo_comments_processed,
-      startedAt: raw.started_at || new Date().toISOString(),
-      completedAt: raw.completed_at || new Date().toISOString(),
-      durationSeconds: raw.duration_seconds || 18,
-      selectedPosts,
-      statistics: {
-        totalComments: seed.statistics.fictional_comments,
-        flagged: seed.statistics.flagged,
-        safeOrUncertain: seed.statistics.safe_or_uncertain,
-        critical: seed.statistics.critical,
-        severity: seed.statistics.severity,
-        languages: seed.statistics.languages,
-        labels: seed.statistics.labels,
-        repeatAccounts: seed.statistics.repeat_accounts.map((r) => ({
-          authorId: r.author_id,
-          displayName: r.display_name,
-          flaggedComments: r.flagged_comments,
-          affectedPosts: r.affected_posts,
-          maxSeverity: r.max_severity,
-          meetsIncidentThreshold: r.meets_incident_threshold,
-        })),
-        repeatIncidents: seed.statistics.repeat_incidents,
-      },
-      findings: seed.findings.map((f) => ({
-        id: f.id,
-        postId: f.post_id,
-        postCaption: f.post_caption,
-        postIsDemo: f.post_is_demo,
-        authorId: f.author_id,
-        authorName: f.author_name,
-        commentText: f.comment_text,
-        label: f.label,
-        severity: f.severity,
-        languageCode: f.language_code,
-        explanation: f.explanation,
-        reasonCode: f.reason_code,
-      })),
-      incidents: seed.incidents.map((inc) => ({
-        id: inc.id,
-        incidentType: inc.incident_type,
-        status: inc.status,
-        maxSeverity: inc.max_severity,
-        flaggedCommentCount: inc.flagged_comment_count,
-        affectedPostCount: inc.affected_post_count,
-        summary: inc.summary,
-        isDemo: true,
-      })),
-    };
-  }
-
+  // Never substitute client-generated fictional findings for a stored scan.
+  // History API responses are summaries, not evidence that scan data is missing.
   const rawStats = raw.statistics;
   const statistics = rawStats
     ? {
@@ -265,6 +205,7 @@ export function adaptScan(raw: any): ScanViewModel {
     startedAt: raw.started_at,
     completedAt: raw.completed_at || null,
     durationSeconds: raw.duration_seconds || 18,
+    selectedPostsCount: Number.isInteger(raw.selected_posts_count) ? raw.selected_posts_count : selectedPosts.length,
     selectedPosts,
     statistics,
     findings,
