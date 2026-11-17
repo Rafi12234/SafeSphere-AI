@@ -73,8 +73,8 @@ export default function PostsPage() {
     if (selectedIds.length === 0) return;
     try {
       const res = await createScanMutation.mutateAsync(selectedIds);
-      toast.success("Scan started", {
-        description: `Analyzing ${selectedIds.length} post(s).`,
+      toast.success("Simulated scan started", {
+        description: `Preparing fictional demo findings for ${selectedIds.length} selected post(s).`,
       });
       router.push(`/scans/${res.id}`);
     } catch (err: any) {
@@ -99,9 +99,12 @@ export default function PostsPage() {
                   {page.name}
                 </Badge>
               )}
+              {page?.isDemo && (
+                <Badge variant="warning">Fictional Page · Demo Data</Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Select published posts to ingest comments and run safety scans.
+              View real published Page posts. Selected posts are used in a fictional demo scan; no Facebook comments or live AI are used.
             </p>
           </div>
 
