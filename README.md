@@ -2,13 +2,13 @@
 
 **Official repo:** https://github.com/Rafi12234/SafeSphere-AI
 
-This package contains the **existing Phase 1 starter with Phase 2 changes** (retain your existing `frontend/package-lock.json`), designed for the `SafeSphere_AI_Database_Schema_v1.sql` PostgreSQL database that was imported into pgAdmin4.
+SafeSphere AI is a **Next.js 16 / FastAPI / PostgreSQL** hackathon prototype. It connects authorized Facebook Pages, lists their published posts, and demonstrates explicitly fictional harassment-scanning results. The repository includes the original `SafeSphere_AI_Database_Schema_v1.sql` schema for clean database installations.
 
 ## Implemented
 
 - **Phase 1:** registration, login/logout, JWT HttpOnly cookie session, user + workspace + owner membership, protected Next.js dashboard, FastAPI health endpoints.
 - **Phase 2:** server-side Facebook Login for Business authorization (configured via `config_id`), one-time hashed OAuth state, authorization code exchange, `/me/accounts` Page discovery, encrypted Page-token storage, Page selection, disconnect, and frontend connection status.
-- **CI:** `.github/workflows/ci.yml` runs mocked-backend unit tests and a Next.js build on push / pull request.
+- **CI:** `.github/workflows/ci.yml` runs backend unit tests and a PostgreSQL-backed integration test against a disposable PostgreSQL service, plus a Next.js production build.
 - **Phase 2 test fallback:** optional `FACEBOOK_MOCK=true` exposes **Try Demo Connection**. This creates a **fictional** Page record (`is_demo=true`) with **no Facebook token**; the UI clearly labels it **Demo Data**.
 - **Phase 3:** read-only authorized published Facebook Page post retrieval via Graph API, secure backend token decryption, PostgreSQL post caching, cursor-based older-post sync, pagination, and a multi-select posts dashboard. The posts can now be selected for the fictional demo scan in Phase 4.
 - **Phase 4:** selected post IDs persist with each 18-second clock-driven **simulated** scan. Prewritten fictional Bangla/Banglish/English comments, author aliases, severity labels, analytics, repeat-account indicators, demo incidents and history are stored and shown with prominent **Demo Data** warnings. No Facebook comments are read and no AI inference is run.
@@ -21,6 +21,12 @@ This package contains the **existing Phase 1 starter with Phase 2 changes** (ret
 Read **[docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md)** for Facebook connection setup, then **[docs/PHASE3_SETUP.md](docs/PHASE3_SETUP.md)** for real post retrieval, and **[docs/PHASE4_SETUP.md](docs/PHASE4_SETUP.md)** for simulated scanning, exact local commands, PostgreSQL verification and demo caveats.
 
 For customer onboarding and Facebook's **App not active** / App Review restrictions, see **[docs/FACEBOOK_PUBLIC_ONBOARDING.md](docs/FACEBOOK_PUBLIC_ONBOARDING.md)**. Customers connect managed Facebook **Pages**, never personal profiles; public Facebook OAuth requires Meta activation and the relevant advanced permissions.
+
+### Public legal-information pages (Meta publishing prerequisites)
+
+The public legal pages live in [`docs/index.md`](docs/index.md), [`docs/privacy-policy.md`](docs/privacy-policy.md), [`docs/terms-of-service.md`](docs/terms-of-service.md), and [`docs/data-deletion.md`](docs/data-deletion.md). The [Jekyll configuration](docs/_config.yml) is ready to deploy via GitHub Pages. **GitHub Pages is not automatically enabled by these commits.** The repository owner must set **Settings → Pages → Deploy from a branch → main /docs**, save, and verify the HTTPS pages load before entering the URLs into Meta App Settings → Basic. Read [publication instructions](docs/FACEBOOK_PUBLIC_ONBOARDING.md#publish-the-legal-information-site-before-app-review).
+
+The existing deletion method is an email-based request, not an implemented automatic account deletion button; the team must actually process verified requests. The contact email in the legal pages must be monitored and confirmed by the app owner.
 
 ## Important database notes
 
