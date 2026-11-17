@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # SafeSphere AI — Terms of Service
 
 **Last updated:** November 18, 2026
@@ -47,3 +51,7 @@ You may request deletion of your account and associated platform data by emailin
 ## 9. Contact
 
 Questions about these terms may be sent to **shajedulkabir106@gmail.com**.
+
+---
+
+[SafeSphere AI — Legal & Support](index.html) · [Privacy Policy](privacy-policy.html) · [Data Deletion Instructions](data-deletion.html)
