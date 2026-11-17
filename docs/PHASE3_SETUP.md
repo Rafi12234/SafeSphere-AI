@@ -1,6 +1,6 @@
 # SafeSphere AI — Phase 3: Real Facebook Page Posts
 
-Phase 3 adds **read-only retrieval of authorized Page-owned published posts** via Meta Graph API, caching into the *existing* PostgreSQL **social_posts** table, and a multi-select posts dashboard. It does **not** fetch comments, run AI models, start scans, or perform Page write/moderation actions.
+Phase 3 adds **read-only retrieval of authorized Page-owned published posts** via Meta Graph API, caching into the *existing* PostgreSQL **social_posts** table, and a multi-select posts dashboard. It does **not** fetch comments, run AI models, or perform Page write/moderation actions. Simulated scanning is a separate implemented Phase 4 workflow.
 
 ## What you need to do manually
 
@@ -70,7 +70,7 @@ If you intentionally set FACEBOOK_MOCK=true and chose **Try Demo Connection** in
 - Refreshing twice doesn't duplicate rows (unique key: connection_id, provider_post_id).
 - **Fetch older from Facebook** appears if Meta provides another page, and stored posts remain on reload.
 - **Load more cached posts** paginates when there are more than 24 entries.
-- Multiple posts can be checked, including select-all on the current filtered/loaded list. Start Scan stays **disabled until Phase 4**.
+- Multiple posts can be checked, including select-all on the current filtered/loaded list. **Start Simulated Scan** is enabled for owners/admins with 1–20 selected posts; it opens the explicitly fictional Phase 4 workflow.
 - Switching to another connected Page shows **only that Page's cached posts**.
 - Meta token-expiry or missing permission displays a safe, actionable error; tokens are never sent to the frontend.
 - Demo posts show "Demo Data" and never intermingle with real Page posts.
@@ -90,6 +90,6 @@ GitHub Actions runs Python tests/compilation and the Next.js build on pushes to 
 
 ## Scope and boundaries
 
-This is a **hackathon demo**. Graph API returned pictures are shown as remote URLs but not downloaded or analyzed. The comment_count in the API is deliberately null, not invented; no comment fetch calls are made. Your multi-post selection is temporary in the page UI; Phase 4 will persist selected posts alongside simulated scan records.
+This is a **hackathon demo**. Graph API returned pictures are shown as remote URLs but not downloaded or analyzed. The comment_count in the API is deliberately null, not invented; no comment fetch calls are made. Your post selection is temporary in the page UI until the user starts a simulated Phase 4 scan, which persists the selected post IDs with the scan.
 
 The current SQL schema remains authoritative. No Alembic migration or re-import is required for Phase 3. All API access checks use the signed-in user's active workspace. Before a public SaaS launch, complete Meta App Review, HTTPS deployment, token lifecycle management, privacy/data deletion processes, rate limiting, CSRF hardening and multi-tenant end-to-end testing.
