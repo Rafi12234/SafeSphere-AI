@@ -29,7 +29,7 @@ export default function ScansHistoryPage() {
           <div>
             <h2 className="text-xl font-bold tracking-tight">All Workspace Scans</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Review and inspect previous comment safety runs across your Facebook Pages.
+              Review simulated scan history. All comments, classifications and repeat accounts shown here are fictional Demo Data.
             </p>
           </div>
           <Link href="/posts">
@@ -69,7 +69,7 @@ export default function ScansHistoryPage() {
                     </TableCell>
 
                     <TableCell className="text-xs font-medium">
-                      {scan.selectedPosts.length} post(s)
+                      {scan.selectedPostsCount} post(s)
                     </TableCell>
 
                     <TableCell className="text-xs font-medium">
