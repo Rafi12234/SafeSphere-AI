@@ -15,21 +15,21 @@ export function Features() {
     },
     {
       icon: Languages,
-      title: "Find abusive comments",
+      title: "Explore fictional safety scenarios",
       description:
-        "Tuned safety classification for Bangla, Banglish, and English remarks, identifying hostility, threats, and bullying.",
+        "Scripted Bangla, Banglish and English examples demonstrate possible future safety-review workflows.",
     },
     {
       icon: Users,
-      title: "Spot repeat accounts across posts",
+      title: "Explore fictional repeat-account patterns",
       description:
-        "Automatically group accounts that consistently leave hostile comments across multiple distinct posts.",
+        "Inspect fictional recurring-account examples across selected posts.",
     },
     {
       icon: CheckCircle2,
       title: "Review before you act",
       description:
-        "Human-in-the-loop review. Abusive text is blurred by default to preserve peace of mind while building factual records.",
+        "Review fictional findings with sensitive text hidden by default. These results are not evidence against real people.",
     },
   ];
 
@@ -44,7 +44,7 @@ export function Features() {
             Clarity and protection for your digital space.
           </h2>
           <p className="mt-4 text-base text-muted-foreground leading-relaxed">
-            SafeSphere AI helps community leaders distinguish genuine feedback from coordinated intimidation campaigns.
+            The prototype connects real Pages and shows real published posts; its simulated safety results are fictional.
           </p>
         </Reveal>
 
