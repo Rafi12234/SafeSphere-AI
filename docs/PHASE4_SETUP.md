@@ -84,7 +84,7 @@ npm ci
 npm run build
 ~~~
 
-CI runs both jobs on GitHub after pushing to main. It uses fake Meta tokens and does not connect to your local PostgreSQL database. You must still test scan creation, persistence and dashboard behavior against your local database.
+GitHub Actions runs backend unit tests **and a PostgreSQL-backed end-to-end integration test** against a disposable PostgreSQL service initialized from the original SQL schema; its frontend job builds Next.js. The tests use fictional data and fake Meta tokens. CI does **not** connect to or change your own local PostgreSQL database, so you should still test the full browser flow locally.
 
 ## Hackathon/demo presentation and scope
 
