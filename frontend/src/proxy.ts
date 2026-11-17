@@ -1,10 +1,40 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-// Convenience-only guard. FastAPI validates the signed JWT and workspace on every data request.
 export function proxy(request: NextRequest) {
-  if (!request.cookies.has("safesphere_session")) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  const hasSession = request.cookies.has("safesphere_session");
+  const { pathname } = request.nextUrl;
+
+  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
+  const isProtectedRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/posts") ||
+    pathname.startsWith("/scans") ||
+    pathname.startsWith("/cases") ||
+    pathname.startsWith("/reports") ||
+    pathname.startsWith("/settings");
+
+  if (hasSession && isAuthRoute) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
+
+  if (!hasSession && isProtectedRoute) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.next();
 }
-export const config = { matcher: ["/dashboard/:path*", "/posts/:path*", "/scans/:path*"] };
+
+export const config = {
+  matcher: [
+    "/dashboard/:path*",
+    "/posts/:path*",
+    "/scans/:path*",
+    "/cases/:path*",
+    "/reports/:path*",
+    "/settings/:path*",
+    "/login",
+    "/register",
+  ],
+};
