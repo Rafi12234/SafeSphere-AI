@@ -1,4 +1,8 @@
-# SafeSphere AI
+---
+layout: default
+---
+
+# SafeSphere AI — Legal & Support
 
 SafeSphere AI is a Bangladesh-first social media safety prototype.
 
@@ -13,3 +17,7 @@ The platform allows authorized Facebook Page managers to connect their Pages, re
 Contact: shajedulkabir106@gmail.com
 
 **Prototype notice:** The harassment-scanning demonstration uses fictional comments and scripted classifications. It does not retrieve real Facebook comments or run live AI analysis.
+
+---
+
+**Note for Meta App Review:** This public information site is separate from the SafeSphere AI web application. The real Facebook Page connection flow requires Meta's applicable public-access approval.
