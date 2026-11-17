@@ -1,380 +1,347 @@
 "use client";
 
+import React, { useState } from "react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, type Me } from "@/lib/api";
-
-type Post = {
-  id: string;
-  provider_post_id: string;
-  caption: string | null;
-  post_type: string;
-  thumbnail_url: string | null;
-  permalink: string | null;
-  published_at: string | null;
-  is_demo: boolean;
-  comment_count: null;
-};
-type PageConnection = {
-  id: string;
-  name: string;
-  is_demo: boolean;
-  status: string;
-  last_synced_at: string | null;
-  has_older_on_facebook: boolean;
-  can_sync: boolean;
-};
-type PostsResponse = {
-  page: PageConnection | null;
-  posts: Post[];
-  total: number;
-  limit: number;
-  offset: number;
-  has_more: boolean;
-};
-type SyncResult = {
-  synced: number;
-  is_demo: boolean;
-  has_older_on_facebook: boolean;
-  last_synced_at: string;
-};
-
-function formatDate(value: string | null) {
-  if (!value) return "Date unavailable";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "Date unavailable"
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
+import {
+  RotateCcw,
+  History,
+  CheckSquare,
+  Square,
+  Image as ImageIcon,
+  MessageSquare,
+  Calendar,
+  ExternalLink,
+  Play,
+  ArrowRight,
+  ShieldAlert,
+} from "lucide-react";
+import { AppShell } from "@/components/dashboard/AppShell";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { usePosts, useSyncPosts, useCreateScan } from "@/lib/api/queries";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function PostsPage() {
   const router = useRouter();
-  const [me, setMe] = useState<Me | null>(null);
-  const [data, setData] = useState<PostsResponse | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [search, setSearch] = useState("");
-  const [kind, setKind] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [offset, setOffset] = useState(0);
+  const limit = 24;
 
-  const loadPosts = useCallback(async (offset = 0, append = false) => {
-    const result = await api<PostsResponse>("/posts?limit=24&offset=" + offset);
-    setData((previous) => append && previous && previous.page?.id === result.page?.id
-      ? { ...result, posts: [...previous.posts, ...result.posts] }
-      : result);
-    return result;
-  }, []);
+  const { data, isLoading, refetch } = usePosts(limit, offset);
+  const syncMutation = useSyncPosts();
+  const createScanMutation = useCreateScan();
 
-  useEffect(() => {
-    Promise.all([api<Me>("/auth/me"), loadPosts()])
-      .then(([person]) => setMe(person))
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Unable to load posts.");
-        if (err instanceof Error && /401|log in|session/i.test(err.message)) {
-          router.replace("/login");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const posts = data?.posts || [];
+  const page = data?.page;
+  const total = data?.total || 0;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.length === posts.length && posts.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(posts.map((p) => p.id));
+    }
+  }
+
+  async function handleSync(mode: "latest" | "older") {
+    try {
+      const res = await syncMutation.mutateAsync(mode);
+      toast.success(
+        mode === "latest" ? "Synced latest posts" : "Fetched older posts",
+        {
+          description: `${res.synced} posts updated from Meta.`,
         }
-      })
-      .finally(() => setLoading(false));
-  }, [loadPosts, router]);
-
-  const posts = useMemo(() => data?.posts ?? [], [data?.posts]);
-  const filtered = useMemo(() => posts.filter((post) => {
-    const textMatch = (post.caption || "").toLowerCase().includes(search.toLowerCase())
-      || post.provider_post_id.includes(search);
-    const kindMatch = kind === "all" || post.post_type === kind;
-    return textMatch && kindMatch;
-  }), [posts, search, kind]);
-  const visibleIds = filtered.map((p) => p.id);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
-  const canManage = me?.role === "owner" || me?.role === "admin";
-
-  function toggleOne(id: string) {
-    setSelected((old) => old.includes(id) ? old.filter((item) => item !== id) : [...old, id]);
-  }
-
-  function toggleAllVisible() {
-    setSelected((old) => allVisibleSelected
-      ? old.filter((id) => !visibleIds.includes(id))
-      : Array.from(new Set([...old, ...visibleIds])));
-  }
-
-  async function synchronize(mode: "latest" | "older") {
-    setBusy(mode);
-    setError("");
-    setNotice("");
-    try {
-      const result = await api<SyncResult>("/posts/sync", {
-        method: "POST",
-        body: JSON.stringify({ mode }),
+      );
+    } catch (err: any) {
+      toast.error("Failed to sync posts", {
+        description: err.message || "Please check your Facebook connection.",
       });
-      await loadPosts(0);
-      setSelected([]);
-      setNotice(result.is_demo
-        ? "Demo Data: fictional sample posts loaded. No Meta data was accessed."
-        : String(result.synced) + " real Facebook posts retrieved from this batch. The dashboard cache is updated.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Facebook post sync failed.");
-    } finally {
-      setBusy("");
     }
   }
 
-  async function startScan() {
-    if (selected.length < 1 || selected.length > 20 || busy || !canManage) return;
-    setBusy("scan");
-    setError("");
-    setNotice("");
+  async function handleStartScan() {
+    if (selectedIds.length === 0) return;
     try {
-      const result = await api<{ id: string }>("/scans", {
-        method: "POST",
-        body: JSON.stringify({ post_ids: selected }),
+      const res = await createScanMutation.mutateAsync(selectedIds);
+      toast.success("Scan started", {
+        description: `Analyzing ${selectedIds.length} post(s).`,
       });
-      router.push(`/scans/${result.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start demo scan.");
-      setBusy("");
+      router.push(`/scans/${res.id}`);
+    } catch (err: any) {
+      toast.error("Failed to start scan", {
+        description: err.message || "Please select valid posts.",
+      });
     }
   }
 
-  async function loadMore() {
-    if (!data || busy) return;
-    setBusy("more");
-    setError("");
-    try {
-      await loadPosts(data.posts.length, true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load more cached posts.");
-    } finally {
-      setBusy("");
-    }
-  }
+  const isAllSelected = posts.length > 0 && selectedIds.length === posts.length;
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl px-5 py-9 text-slate-100 md:px-7">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 pb-6">
-        <div>
-          <Link href="/dashboard" className="text-sm font-semibold text-sky-300 hover:underline">
-            ← Back to dashboard
-          </Link>
-          <h1 className="mt-3 text-3xl font-bold">Facebook Posts</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Phases 3–4 · Real published posts · Fictional comments and simulated scan results
-          </p>
-        </div>
-        {data?.page?.is_demo && (
-          <span className="rounded-full border border-amber-600 bg-amber-950/50 px-3 py-1 text-xs font-bold text-amber-200">
-            DEMO DATA — FICTIONAL POSTS
-          </span>
-        )}
-      </header>
-
-      {loading && <p className="text-slate-300">Loading your selected Facebook Page…</p>}
-      {error && <p role="alert" className="mb-5 rounded-lg border border-red-700 bg-red-950/40 p-4 text-sm text-red-200">{error}</p>}
-      {notice && <p role="status" className="mb-5 rounded-lg border border-sky-700 bg-sky-950/40 p-4 text-sm text-sky-100">{notice}</p>}
-
-      {!loading && data && !data.page && (
-        <section className="rounded-xl border border-slate-700 bg-slate-900 p-8">
-          <h2 className="text-xl font-bold">No Facebook Page selected</h2>
-          <p className="mt-3 text-slate-300">
-            Connect Facebook and select one of your authorized Pages on the dashboard first.
-          </p>
-          <Link href="/dashboard" className="mt-5 inline-block rounded-lg bg-sky-600 px-4 py-2 font-semibold hover:bg-sky-500">
-            Manage Facebook Pages
-          </Link>
-        </section>
-      )}
-
-      {!loading && data?.page && (
-        <>
-          <section className="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-5 md:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-sky-400">Selected Page</p>
-                <h2 className="mt-1 text-2xl font-bold">{data.page.name}</h2>
-                <p className="mt-2 text-sm text-slate-400">
-                  {data.page.is_demo ? "Fictional showcase Page" : "Real Facebook Page"}
-                  {" · "}Status: {data.page.status.replaceAll("_", " ")}
-                  {" · "}Last synced: {data.page.last_synced_at ? formatDate(data.page.last_synced_at) : "Never"}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => synchronize("latest")}
-                  disabled={Boolean(busy) || !canManage || !data.page?.can_sync}
-                  className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {busy === "latest" ? "Fetching posts…" : data.page.is_demo ? "Load Demo Posts" : "Refresh latest posts"}
-                </button>
-                {data.page.has_older_on_facebook && (
-                  <button
-                    type="button"
-                    onClick={() => synchronize("older")}
-                    disabled={Boolean(busy) || !canManage || !data.page.can_sync}
-                    className="rounded-lg border border-sky-600 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-slate-800 disabled:opacity-40"
-                  >
-                    {busy === "older" ? "Fetching older posts…" : "Fetch older from Facebook"}
-                  </button>
-                )}
-              </div>
+    <AppShell title="Facebook Page Posts">
+      <div className="space-y-6 pb-20">
+        {/* Header & Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold tracking-tight">Published Posts</h2>
+              {page && (
+                <Badge variant="outline" className="text-xs">
+                  {page.name}
+                </Badge>
+              )}
             </div>
-            {!canManage && <p className="mt-4 text-sm text-amber-200">Only workspace owners and admins can sync posts; you may still view cached posts.</p>}
-            {data.page.status !== "connected" && (
-              <p className="mt-4 text-sm text-amber-200">
-                Your Facebook authorization needs attention. Reconnect the Page on the dashboard to sync new posts.
-              </p>
-            )}
-            {data.page.is_demo && (
-              <p className="mt-4 text-sm text-amber-200">
-                This Page and every post shown below are fictional. This mode does not retrieve Facebook content.
-              </p>
-            )}
-          </section>
-
-          <section className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Published posts</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                {data.total} cached {data.page.is_demo ? "demo" : "Facebook"} posts · {selected.length} selected
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <label className="sr-only" htmlFor="post-search">Search loaded posts</label>
-              <input
-                id="post-search"
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search loaded posts"
-                className="min-w-48 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
-              />
-              <label className="sr-only" htmlFor="post-kind">Filter by post type</label>
-              <select
-                id="post-kind"
-                value={kind}
-                onChange={(e) => setKind(e.target.value)}
-                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
-              >
-                <option value="all">All types</option>
-                <option value="text">Text</option>
-                <option value="image">With image</option>
-                <option value="unknown">Other</option>
-              </select>
-            </div>
-          </section>
-
-          <div className="mb-4 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-sm">
-            <input
-              id="select-visible"
-              type="checkbox"
-              checked={allVisibleSelected}
-              disabled={visibleIds.length === 0}
-              onChange={toggleAllVisible}
-              className="h-4 w-4 accent-sky-500"
-            />
-            <label htmlFor="select-visible" className="cursor-pointer">Select all currently visible posts ({visibleIds.length})</label>
-            {selected.length > 0 && (
-              <button type="button" onClick={() => setSelected([])} className="ml-auto text-sky-300 hover:underline">
-                Clear selection
-              </button>
-            )}
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select published posts to ingest comments and run safety scans.
+            </p>
           </div>
 
-          {posts.length === 0 ? (
-            <section className="rounded-xl border border-dashed border-slate-600 p-10 text-center">
-              <h3 className="text-lg font-bold">No posts cached yet</h3>
-              <p className="mt-2 text-sm text-slate-400">
-                {data.page.is_demo
-                  ? "Select Load Demo Posts to see clearly labeled fictional posts."
-                  : "Click Refresh latest posts. If Facebook returns no posts, publish a test post on your Page and retry."}
-              </p>
-            </section>
-          ) : filtered.length === 0 ? (
-            <p className="rounded-lg border border-slate-700 p-6 text-sm text-slate-400">
-              No loaded posts match your current search/filter. Clear the filter or load more posts.
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleSync("latest")}
+              disabled={syncMutation.isPending || !page}
+              className="gap-1.5"
+            >
+              <RotateCcw className={cn("size-3.5", syncMutation.isPending && "animate-spin")} />
+              Refresh latest
+            </Button>
+
+            {page?.hasOlderOnFacebook && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleSync("older")}
+                disabled={syncMutation.isPending}
+                className="gap-1.5"
+              >
+                <History className="size-3.5" />
+                Load older posts
+              </Button>
+            )}
+
+            {posts.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={toggleSelectAll}
+                className="gap-1.5"
+              >
+                {isAllSelected ? (
+                  <>
+                    <Square className="size-3.5" /> Deselect all
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="size-3.5" /> Select all on page
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Empty state: No connected Page */}
+        {!page && !isLoading && (
+          <Card className="border p-8 text-center bg-card shadow-xs">
+            <ShieldAlert className="size-8 mx-auto text-muted-foreground mb-3" />
+            <h3 className="text-base font-semibold">No Facebook Page selected</h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+              Please connect and select a Page on your dashboard to load published posts.
             </p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {filtered.map((post) => (
-                <article
+            <div className="mt-4 flex justify-center">
+              <Link href="/dashboard">
+                <Button size="sm" variant="default">
+                  Go to Dashboard
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        )}
+
+        {/* Posts Grid */}
+        {page && posts.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {posts.map((post) => {
+              const isSelected = selectedIds.includes(post.id);
+              return (
+                <Card
                   key={post.id}
-                  className={"overflow-hidden rounded-xl border bg-slate-900 " +
-                    (selected.includes(post.id) ? "border-sky-500" : "border-slate-700")}
-                >
-                  {post.thumbnail_url && (
-                    /* Remote images are returned by Meta; no local media is ingested in Phase 3. */
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={post.thumbnail_url} alt="Facebook post attachment" loading="lazy" className="h-48 w-full bg-slate-800 object-cover" />
+                  onClick={() => toggleSelect(post.id)}
+                  className={cn(
+                    "cursor-pointer border transition-all duration-200 hover:border-border/80 shadow-xs flex flex-col justify-between overflow-hidden",
+                    isSelected
+                      ? "border-primary/60 bg-primary/5 ring-1 ring-primary/40"
+                      : "bg-card"
                   )}
-                  <div className="p-5">
-                    <div className="flex items-start gap-3">
-                      <input
-                        aria-label={"Select post " + post.provider_post_id}
-                        type="checkbox"
-                        checked={selected.includes(post.id)}
-                        onChange={() => toggleOne(post.id)}
-                        className="mt-1 h-5 w-5 accent-sky-500"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                          <span>{formatDate(post.published_at)}</span>
-                          <span>· {post.post_type}</span>
-                          {post.is_demo && <span className="rounded bg-amber-950 px-2 py-0.5 font-bold text-amber-200">Demo Data</span>}
-                        </div>
-                        <p className="whitespace-pre-wrap break-words text-sm text-slate-100">
-                          {post.caption || "(No text caption available)"}
-                        </p>
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-                          <span className="break-all">ID: {post.provider_post_id}</span>
-                          {post.permalink && !post.is_demo && (
-                            <a href={post.permalink} target="_blank" rel="noopener noreferrer"
-                              className="shrink-0 font-semibold text-sky-300 hover:underline">
-                              View on Facebook ↗
-                            </a>
-                          )}
-                        </div>
+                >
+                  <CardContent className="p-4 space-y-3">
+                    {/* Top Row: Type, Date & Checkbox */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="size-3" />
+                        <span>
+                          {post.publishedAt
+                            ? new Date(post.publishedAt).toLocaleDateString()
+                            : "Recent"}
+                        </span>
+                      </div>
+
+                      <div
+                        className={cn(
+                          "size-5 rounded border flex items-center justify-center transition-colors",
+                          isSelected
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-input bg-background"
+                        )}
+                      >
+                        {isSelected && <CheckSquare className="size-3.5" />}
                       </div>
                     </div>
+
+                    {/* Thumbnail Image if available */}
+                    {post.thumbnailUrl ? (
+                      <div className="relative aspect-video w-full rounded-md overflow-hidden bg-muted">
+                        <img
+                          src={post.thumbnailUrl}
+                          alt="Post thumbnail"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-20 w-full items-center justify-center rounded-md bg-muted/40 text-muted-foreground border border-dashed">
+                        <ImageIcon className="size-5 opacity-40 mr-2" />
+                        <span className="text-xs">Text update</span>
+                      </div>
+                    )}
+
+                    {/* Caption snippet */}
+                    <p className="text-xs text-foreground line-clamp-3 leading-relaxed font-normal">
+                      {post.caption || "No caption provided for this post."}
+                    </p>
+                  </CardContent>
+
+                  {/* Card Footer: Comments badge & link */}
+                  <div className="px-4 py-3 bg-muted/20 border-t flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className="size-3.5" />
+                      {/* Empty badge adaptation per user specification */}
+                      <Badge variant="outline" className="text-[11px] font-mono px-1.5 py-0">
+                        {post.commentCount !== null ? `${post.commentCount}` : "—"}
+                      </Badge>
+                    </div>
+
+                    {post.permalink && (
+                      <a
+                        href={post.permalink}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-[11px] hover:text-foreground transition-colors"
+                      >
+                        <span>Meta link</span>
+                        <ExternalLink className="size-3" />
+                      </a>
+                    )}
                   </div>
-                </article>
-              ))}
-            </div>
-          )}
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
-          {data.has_more && (
-            <div className="my-6 text-center">
-              <button type="button" onClick={loadMore} disabled={Boolean(busy)}
-                className="rounded-lg border border-slate-600 px-5 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-40">
-                {busy === "more" ? "Loading…" : "Load more cached posts"}
-              </button>
-            </div>
-          )}
-
-          <section className="mt-7 rounded-xl border border-slate-700 bg-slate-900 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-bold">Selected posts: {selected.length}</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Start a scripted demo scan of the selected posts. All comments and results are fictional; no Facebook comments or AI models are used.
-                </p>
-              </div>
-              <button type="button" onClick={startScan}
-                disabled={!canManage || selected.length === 0 || selected.length > 20 || Boolean(busy)}
-                title="Creates clearly labeled fictional demo comments and scripted classifications. Does not fetch Facebook comments."
-                className="rounded-lg bg-sky-600 px-5 py-2 font-bold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400">
-                {busy === "scan" ? "Starting demo…" : `Start Simulated Scan (${selected.length})`}
-              </button>
-            </div>
-            <p className="mt-3 text-xs text-slate-500">
-              A scan saves the selected post IDs and creates fictional demonstration comments in PostgreSQL.
-              Maximum 20 posts per scan. No genuine comment count is fetched or estimated from Facebook.
+        {/* Empty state: Page connected but no posts synced */}
+        {page && posts.length === 0 && !isLoading && (
+          <Card className="border p-8 text-center bg-card shadow-xs">
+            <h3 className="text-base font-semibold">No posts synchronized yet</h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+              Click Refresh Latest to pull recent publications from your Facebook Page.
             </p>
-          </section>
-        </>
-      )}
-    </main>
+            <div className="mt-4 flex justify-center">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => handleSync("latest")}
+                disabled={syncMutation.isPending}
+              >
+                Sync Posts Now
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Pagination */}
+        {total > limit && (
+          <div className="flex items-center justify-between pt-4 border-t text-xs text-muted-foreground">
+            <span>
+              Showing {offset + 1}–{Math.min(offset + limit, total)} of {total} posts
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={offset === 0}
+                onClick={() => setOffset((prev) => Math.max(0, prev - limit))}
+              >
+                Previous
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={offset + limit >= total}
+                onClick={() => setOffset((prev) => prev + limit)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Sticky Selected-Count Bottom Bar */}
+        {selectedIds.length > 0 && (
+          <div className="fixed bottom-6 inset-x-0 z-40 px-4">
+            <div className="max-w-xl mx-auto rounded-lg border border-border bg-card/95 backdrop-blur-md p-3.5 shadow-lg flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 pl-2">
+                <span className="flex size-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm font-semibold text-foreground">
+                  {selectedIds.length} post{selectedIds.length > 1 ? "s" : ""} selected
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedIds([])}
+                  className="text-xs"
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="default"
+                  variant="default"
+                  onClick={handleStartScan}
+                  disabled={createScanMutation.isPending}
+                  className="gap-2"
+                >
+                  <Play className="size-3.5 fill-current" />
+                  {createScanMutation.isPending ? "Starting..." : "Start scan"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </AppShell>
   );
 }
