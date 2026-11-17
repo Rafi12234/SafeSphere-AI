@@ -1,11 +1,11 @@
 # SafeSphere AI — Phase 2 setup and validation
 
-Phase 2 provides **real Facebook Page OAuth authorization, encrypted Page token storage, Page selection, and disconnection**. Phase 3 will fetch real posts; Phase 4 will explicitly simulate scanning and results.
+Phase 2 provides **real Facebook Page OAuth authorization, encrypted Page token storage, Page selection, and disconnection**. Phase 3 retrieves real published Page posts; Phase 4 now provides explicitly simulated scanning and fictional results.
 
 ## Before starting
 - Use the existing PostgreSQL database created with `database/SafeSphere_AI_Database_Schema_v1.sql`. Do not rerun the file on an existing populated database.
 - Use the existing Meta app's Facebook Login for Business **User Access Token** configuration with `pages_show_list` and `pages_read_engagement`.
-- For local development, use `localhost:3000` consistently; the OAuth callback is `http://localhost:3000/api/facebook/callback`. During development, Meta automatically permits localhost redirects if its settings page says so.
+- For local development, use `localhost:3000` consistently; the OAuth callback is `http://localhost:3000/api/facebook/callback`. Confirm Meta permits the exact localhost redirect under the Facebook Login for Business configuration; localhost authorization does **not** bypass Development-mode app-role restrictions.
 - Do **not** commit `backend/.env`, `frontend/.env.local`, tokens, app secrets or encryption keys.
 
 ## Local setup
@@ -65,7 +65,7 @@ npm run build
 ```
 
 ## Demo mode
-`FACEBOOK_MOCK=true` enables a clearly labeled fictional Page, without Meta authorization or genuine post/comment data. It is for judges without Meta app roles; do not present it as a real Facebook connection.
+`FACEBOOK_MOCK=true` enables a clearly labeled fictional Page, without Meta authorization or genuine post/comment data. It is for judges without Meta app roles; do not present it as a real Facebook connection. For approved access by ordinary Page owners, follow [Public Facebook Onboarding](FACEBOOK_PUBLIC_ONBOARDING.md).
 
 ## Public-launch requirements (not completed by Phase 2)
 Before allowing arbitrary customers to connect: deploy HTTPS, register the exact production OAuth redirect URI, enable secure cookies, complete required Meta App Review and business verification, implement deauthorization/data deletion and privacy policy endpoints, add rate limiting and comprehensive CSRF protection, validate multi-tenant isolation, handle token revocation and expiry, and rotate any previously exposed credentials.
