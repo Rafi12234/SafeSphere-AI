@@ -10,25 +10,25 @@ export function Faq() {
       id: "faq-1",
       question: "What permissions does SafeSphere require from Facebook?",
       answer:
-        "SafeSphere only requests read-only permissions (pages_show_list and pages_read_engagement) via Facebook Login for Business to read public comments on published Page posts. We never request or use write permissions.",
+        "SafeSphere only requests read-only permissions (pages_show_list and pages_read_engagement) via Facebook Login for Business to list authorized Pages and retrieve their published posts. We never request or use write permissions.",
     },
     {
       id: "faq-2",
       question: "Will SafeSphere post, delete, or hide comments automatically?",
       answer:
-        "Never. SafeSphere operates entirely as an advisory intelligence tool. It does not publish posts, post replies, delete comments, or block profiles on your behalf.",
+        "Never. This prototype does not process real comments or perform live AI analysis. It does not publish posts, post replies, delete comments, or block profiles on your behalf.",
     },
     {
       id: "faq-3",
       question: "Which languages and dialects are supported?",
       answer:
-        "Our models and heuristic safeguards are specifically tuned for Standard Bengali (বাংলা), phonetic Banglish (e.g., 'Toke online e shanti te thakte dibo na'), and English comments.",
+        "Our fictional demonstration samples include Bangla (বাংলা), Banglish and English. Live multilingual AI models are not yet implemented.",
     },
     {
       id: "faq-4",
       question: "Is SafeSphere a replacement for formal legal counsel?",
       answer:
-        "No. SafeSphere organizes factual records, classifies abuse patterns, and exports timestamped evidence. It does not provide legal advice or directly file law enforcement complaints.",
+        "No. The current prototype shows fictional safety findings and a UI-only report draft, not verified evidence. It does not provide legal advice or directly file law enforcement complaints.",
     },
     {
       id: "faq-5",
@@ -40,7 +40,7 @@ export function Faq() {
       id: "faq-6",
       question: "What does it cost to run a comment scan?",
       answer:
-        "The current demonstration environment is completely free to evaluate. Future production tiers will offer straightforward per-scan or monthly creator packages.",
+        "The hackathon prototype has no billing. Its simulated scans use only scripted fictional examples.",
     },
   ];
 
