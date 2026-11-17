@@ -47,7 +47,7 @@ export function Hero() {
             transition={{ duration: 0.55, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
             className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.12]"
           >
-            Know who is targeting your comments, before it wears you down.
+            Understand Facebook Page safety, one post at a time.
           </motion.h1>
 
           {/* Supporting Copy */}
@@ -57,7 +57,7 @@ export function Hero() {
             transition={{ duration: 0.55, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
             className="mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-2xl"
           >
-            SafeSphere AI detects targeted harassment, hate speech, and repeat harassment accounts across your Facebook Page posts — keeping you in full control without noise.
+            Connect a real Facebook Page, view its published posts, and explore a fictional demonstration of Bangla, Banglish and English safety reviews. Live comment analysis is not yet available.
           </motion.p>
 
           {/* Strict Buttons: w-auto, sm/default only, side by side */}
@@ -95,27 +95,27 @@ export function Hero() {
               <div className="size-3 rounded-full bg-amber-500/60" />
               <div className="size-3 rounded-full bg-emerald-500/60" />
               <span className="text-xs text-muted-foreground ml-2 font-mono">
-                safesphere.app / dashboard / overview
+                SafeSphere AI · fictional preview
               </span>
             </div>
             <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-md border border-emerald-500/20">
-              Live Monitoring
+              Demo Preview
             </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <div className="rounded-md border p-3 bg-background/50">
-              <p className="text-xs text-muted-foreground">Scanned Comments</p>
+              <p className="text-xs text-muted-foreground">Fictional Comments</p>
               <p className="text-xl sm:text-2xl font-bold mt-1 text-foreground">1,248</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Across 6 posts</p>
             </div>
             <div className="rounded-md border p-3 bg-background/50">
-              <p className="text-xs text-muted-foreground">Flagged Comments</p>
+              <p className="text-xs text-muted-foreground">Demo Findings</p>
               <p className="text-xl sm:text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">18</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Bangla, Banglish, EN</p>
             </div>
             <div className="rounded-md border p-3 bg-background/50">
-              <p className="text-xs text-muted-foreground">Repeat Accounts</p>
+              <p className="text-xs text-muted-foreground">Fictional Accounts</p>
               <p className="text-xl sm:text-2xl font-bold mt-1 text-destructive">4</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">3+ posts targeted</p>
             </div>
@@ -128,7 +128,7 @@ export function Hero() {
 
           <div className="rounded-md border bg-muted/30 p-3 sm:p-4">
             <div className="flex items-center justify-between text-xs text-muted-foreground pb-2 border-b">
-              <span>Recent Detection Sample</span>
+              <span>Fictional Sample · Demo Data</span>
               <span>Protected preview (blurred)</span>
             </div>
             <div className="mt-3 space-y-2">
