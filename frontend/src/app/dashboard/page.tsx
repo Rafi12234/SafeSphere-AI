@@ -1,65 +1,408 @@
 "use client";
+
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { api, type Me } from "@/lib/api";
-import FacebookPanel from "@/components/FacebookPanel";
+import { useSearchParams } from "next/navigation";
+import {
+  Link2,
+  CheckCircle2,
+  ArrowRight,
+  AlertTriangle,
+  RotateCcw,
+  Sparkles,
+  ShieldCheck,
+  Search,
+  Users,
+} from "lucide-react";
+import { AppShell } from "@/components/dashboard/AppShell";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  useConnections,
+  useSelectPage,
+  useDisconnectPage,
+  useDemoConnect,
+  useScans,
+  useScan,
+} from "@/lib/api/queries";
+import { toast } from "sonner";
 
-export default function Dashboard() {
-  const router = useRouter();
-  const [me, setMe] = useState<Me | null>(null);
-  const [error, setError] = useState("");
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const outcome = searchParams.get("facebook");
 
+  const { data: connData, isLoading: loadingConn } = useConnections();
+  const { data: scans, isLoading: loadingScans } = useScans();
+
+  const selectPageMutation = useSelectPage();
+  const disconnectMutation = useDisconnectPage();
+  const demoConnectMutation = useDemoConnect();
+
+  const [confirmDisconnectId, setConfirmDisconnectId] = useState<string | null>(null);
+
+  // Handle OAuth outcome banner from URL
   useEffect(() => {
-    api<Me>("/auth/me").then(setMe).catch(() => {
-      setError("Please log in again."); router.replace("/login");
-    });
-  }, [router]);
+    if (!outcome) return;
+    const messages: Record<string, { title: string; description: string; type: "success" | "error" }> = {
+      connected: {
+        title: "Facebook Page Connected",
+        description: "Your Facebook Page has been linked successfully.",
+        type: "success",
+      },
+      cancelled: {
+        title: "Authorization Cancelled",
+        description: "Facebook authorization was cancelled or denied.",
+        type: "error",
+      },
+      no_pages: {
+        title: "No Eligible Pages Found",
+        description: "No Facebook Pages with required permissions were returned.",
+        type: "error",
+      },
+      invalid_state: {
+        title: "Verification Error",
+        description: "OAuth state verification failed. Please try again.",
+        type: "error",
+      },
+      session_expired: {
+        title: "Session Expired",
+        description: "Your session expired during authorization. Please log in again.",
+        type: "error",
+      },
+      error: {
+        title: "Connection Error",
+        description: "Unable to complete connection. Please retry.",
+        type: "error",
+      },
+    };
 
-  async function logout() {
+    const msg = messages[outcome];
+    if (msg) {
+      if (msg.type === "success") {
+        toast.success(msg.title, { description: msg.description });
+      } else {
+        toast.error(msg.title, { description: msg.description });
+      }
+    }
+  }, [outcome]);
+
+  const pages = connData?.pages || [];
+  const selectedPage = pages.find((p) => p.selected && p.status === "connected");
+  const hasMultipleUnselected = pages.length > 1 && !selectedPage;
+
+  // Latest completed scan for summary metrics
+  const latestCompletedSummary = scans?.find((s) => s.status === "completed");
+  // GET /scans is a summary listing; fetch details for accurate metrics.
+  const { data: latestCompletedScan } = useScan(latestCompletedSummary?.id || "");
+
+  function handleConnectReal() {
+    window.location.assign("/api/facebook/connect");
+  }
+
+  async function handleDemoConnect() {
     try {
-      await api("/auth/logout", { method: "POST" });
-      router.replace("/login");
-      router.refresh();
+      await demoConnectMutation.mutateAsync();
+      toast.success("Demo Page Connected", {
+        description: "Connected to SafeSphere AI Demo Hub.",
+      });
     } catch {
-      setError("Logout failed. Please try again.");
+      toast.error("Failed to connect demo page");
     }
   }
 
-  return <main className="mx-auto min-h-screen max-w-6xl px-5 py-10 md:px-7">
-    <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 pb-6">
-      <div>
-        <p className="text-sm font-bold tracking-widest text-sky-400">SAFESPHERE AI</p>
-        <h1 className="mt-1 text-3xl font-bold">Dashboard</h1>
+  async function handleDisconnect(id: string) {
+    try {
+      await disconnectMutation.mutateAsync(id);
+      setConfirmDisconnectId(null);
+      toast.success("Page disconnected");
+    } catch {
+      toast.error("Failed to disconnect Page");
+    }
+  }
+
+  async function handleSelect(id: string) {
+    try {
+      await selectPageMutation.mutateAsync(id);
+      toast.success("Active Page selected");
+    } catch {
+      toast.error("Failed to set active Page");
+    }
+  }
+
+  return (
+    <AppShell title="Dashboard">
+      <div className="space-y-6">
+        {/* State A: No Connected Page */}
+        {!selectedPage && !loadingConn && (
+          <Card className="border border-border bg-card shadow-xs">
+            <CardHeader className="p-6">
+              <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary mb-3">
+                <Link2 className="size-5" />
+              </div>
+              <CardTitle className="text-xl font-bold">Connect your Facebook Page</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground leading-relaxed max-w-2xl mt-1.5">
+                Connect a Facebook Page you manage to view real published posts and explore a clearly labeled fictional safety demo. No real Facebook comments are collected or analyzed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  size="default"
+                  variant="default"
+                  onClick={handleConnectReal}
+                  className="gap-2"
+                >
+                  <Link2 className="size-4" />
+                  Connect Facebook
+                </Button>
+
+                {connData?.demoAvailable && (
+                  <Button
+                    size="default"
+                    variant="outline"
+                    onClick={handleDemoConnect}
+                    disabled={demoConnectMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Sparkles className="size-4 text-primary" />
+                    {demoConnectMutation.isPending ? "Connecting..." : "Use demo Page"}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* State B: Multiple Pages Available - Selection Required */}
+        {hasMultipleUnselected && (
+          <Card className="border border-border bg-card shadow-xs">
+            <CardHeader className="p-6">
+              <CardTitle className="text-lg font-bold">Select an Active Facebook Page</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Multiple authorized Pages are available. Choose one to view published posts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0 space-y-3">
+              {pages.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-md border p-3 bg-background"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{p.name}</p>
+                    <p className="text-xs text-muted-foreground font-mono">ID: {p.pageId}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSelect(p.id)}
+                    disabled={selectPageMutation.isPending}
+                  >
+                    Select Page
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* State C: Connected Page */}
+        {selectedPage && (
+          <>
+            <Card className="border border-border bg-card shadow-xs">
+              <CardContent className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <ShieldCheck className="size-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-foreground">{selectedPage.name}</h2>
+                        {selectedPage.isDemo && <Badge variant="warning">Fictional Page · Demo Data</Badge>}
+                        <Badge variant="success" className="gap-1 text-xs">
+                          <CheckCircle2 className="size-3" /> Connected
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+                        Page ID: {selectedPage.pageId} · Read-only access active
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Link href="/posts">
+                      <Button size="default" variant="default" className="gap-2">
+                        View posts
+                        <ArrowRight className="size-4" />
+                      </Button>
+                    </Link>
+
+                    {confirmDisconnectId === selectedPage.id ? (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDisconnect(selectedPage.id)}
+                          disabled={disconnectMutation.isPending}
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirmDisconnectId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setConfirmDisconnectId(selectedPage.id)}
+                      >
+                        Disconnect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground" role="note">
+              <strong>Demo Data:</strong> Scan comments, classifications, repeat accounts and metrics below are fictional scripted examples, even when the connected Facebook Page and posts are real. No live AI or Facebook comment retrieval runs.
+            </div>
+
+            {/* Metrics Overview from Latest Scan */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="border border-border p-4 bg-card shadow-xs">
+                <p className="text-xs font-medium text-muted-foreground">Scanned Comments</p>
+                <p className="text-2xl font-bold mt-1 text-foreground">
+                  {latestCompletedScan?.statistics?.totalComments ?? 0}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">From fictional demo scan</p>
+              </Card>
+
+              <Card className="border border-border p-4 bg-card shadow-xs">
+                <p className="text-xs font-medium text-muted-foreground">Flagged Comments</p>
+                <p className="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">
+                  {latestCompletedScan?.statistics?.flagged ?? 0}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Fictional findings</p>
+              </Card>
+
+              <Card className="border border-border p-4 bg-card shadow-xs">
+                <p className="text-xs font-medium text-muted-foreground">Repeat Accounts</p>
+                <p className="text-2xl font-bold mt-1 text-destructive">
+                  {latestCompletedScan?.statistics?.repeatAccounts.length ?? 0}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Fictional repeat accounts</p>
+              </Card>
+
+              <Card className="border border-border p-4 bg-card shadow-xs">
+                <p className="text-xs font-medium text-muted-foreground">Top Severity Level</p>
+                <p className="text-2xl font-bold mt-1 capitalize text-destructive">
+                  {latestCompletedScan?.statistics?.critical ? "Critical" : "Standard"}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Scripted severity</p>
+              </Card>
+            </div>
+
+            {/* Quick Action Banner */}
+            <Card className="border border-border bg-muted/30 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Ready to scan published Page posts?
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Select published posts to explore a fictional scripted scan. Nothing is exported or submitted.
+                </p>
+              </div>
+              <Link href="/posts">
+                <Button size="sm" variant="default" className="gap-2">
+                  Select posts to scan
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </Link>
+            </Card>
+
+            {/* Recent Scans Table */}
+            <Card className="border border-border bg-card shadow-xs">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold">Recent Workspace Scans</CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      Review safety scan history and navigate to full findings.
+                    </CardDescription>
+                  </div>
+                  <Link href="/scans">
+                    <Button size="sm" variant="outline">
+                      View all history
+                    </Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                {scans && scans.length > 0 ? (
+                  <div className="divide-y divide-border/60">
+                    {scans.slice(0, 5).map((scan) => (
+                      <div
+                        key={scan.id}
+                        className="py-3 flex items-center justify-between gap-4 first:pt-0 last:pb-0"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-foreground font-mono">
+                              Scan #{scan.id.slice(0, 8)}
+                            </span>
+                            <Badge
+                              variant={scan.status === "completed" ? "success" : "info"}
+                              className="text-[10px]"
+                            >
+                              {scan.status}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Started: {new Date(scan.startedAt).toLocaleString()} ·{" "}
+                            {scan.selectedPostsCount} post(s)
+                          </p>
+                        </div>
+
+                        <Link href={`/scans/${scan.id}`}>
+                          <Button size="sm" variant="ghost">
+                            View results →
+                          </Button>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    No scans have been initiated yet. Go to Posts to start your first scan.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
-      <button onClick={logout} className="rounded-lg border border-slate-600 px-4 py-2 hover:bg-slate-800">Log out</button>
-    </header>
-    {!me ? <p className="text-slate-400">{error || "Loading your workspace…"}</p> : <>
-      <p className="mb-7 text-slate-300">Welcome, <strong>{me.display_name || me.email}</strong> · Workspace: <strong>{me.workspace_name}</strong> · {me.role}</p>
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Account</p><h2 className="mt-1 text-xl font-bold">Active</h2>
-          <p className="mt-2 text-sm text-emerald-300">Real authentication enabled</p>
+    </AppShell>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center text-xs text-muted-foreground">
+          Loading dashboard...
         </div>
-        <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Facebook</p><h2 className="mt-1 text-xl font-bold">Connected Pages</h2>
-          <p className="mt-2 text-sm text-slate-300">Phase 2 authorization + Phase 3 post dashboard</p>
-        </div>
-        <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-          <p className="text-sm text-slate-400">Scanning</p><h2 className="mt-1 text-xl font-bold">Phase 4 · Demo</h2>
-          <p className="mt-2 text-sm text-amber-200">Fictional comments and scripted findings only</p>
-        </div>
-      </div>
-      <FacebookPanel canManage={me.role === "owner" || me.role === "admin"} />
-      <div className="mt-5 rounded-lg border border-amber-700/70 bg-amber-950/20 p-4 text-sm text-amber-200">Phase 4 results are scripted DEMO DATA only. No genuine Facebook comments are collected or analyzed.</div>
-      <section className="mt-6 rounded-xl border border-sky-800 bg-slate-900 p-6">
-        <h2 className="text-xl font-bold">Phase 3 · Facebook Posts</h2>
-        <p className="mt-2 text-sm text-slate-300">View real published Page posts, refresh the cache, and select multiple posts. Scanning is simulated in Phase 4.</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link href="/posts" className="inline-block rounded-lg bg-sky-600 px-5 py-2 font-semibold text-white hover:bg-sky-500">View Facebook Posts →</Link>
-          <Link href="/scans" className="inline-block rounded-lg border border-amber-700 px-5 py-2 font-semibold text-amber-200 hover:bg-amber-950/40">Simulated Scan History</Link>
-        </div>
-      </section>
-    </>}
-  </main>;
+      }
+    >
+      <DashboardContent />
+    </Suspense>
+  );
 }

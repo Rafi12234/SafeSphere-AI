@@ -102,6 +102,14 @@ def test_scan_persistence_timing_tenant_isolation_and_repeat_threshold():
     assert first.json()["ai_executed"] is False
     assert first.json()["estimated_demo_comments"] == 20
 
+    # Frontend scan history consumes the envelope and requires accurate post counts.
+    history = client.get("/scans")
+    assert history.status_code == 200, history.text
+    history_data = history.json()
+    assert history_data["is_demo"] is True
+    assert history_data["scans"][0]["id"] == str(scan_id)
+    assert history_data["scans"][0]["selected_posts_count"] == 2
+
     pending = client.get("/scans/" + str(scan_id))
     assert pending.status_code == 200, pending.text
     assert pending.json()["findings"] == []

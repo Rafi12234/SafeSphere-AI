@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .config import get_settings
@@ -273,7 +273,16 @@ def recent_simulated_scans(request: Request, db: SessionDep):
         ).order_by(Scan.created_at.desc(), Scan.id.desc()).limit(MAX_HISTORY)
     ).all()
     now = datetime.now(timezone.utc)
-    items = [_summary(row, now) for row in rows]
+    scan_ids = [row.id for row in rows]
+    post_counts = dict(db.execute(
+        select(ScanPost.scan_id, func.count(ScanPost.post_id))
+        .where(ScanPost.workspace_id == workspace_id, ScanPost.scan_id.in_(scan_ids))
+        .group_by(ScanPost.scan_id)
+    ).all()) if scan_ids else {}
+    items = [
+        {**_summary(row, now), "selected_posts_count": int(post_counts.get(row.id, 0))}
+        for row in rows
+    ]
     if any(row in db.dirty for row in rows):
         db.commit()
     return {"scans": items, "is_demo": True}

@@ -1,318 +1,714 @@
 "use client";
 
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api";
+import {
+  CheckCircle2,
+  Clock,
+  Search,
+  Eye,
+  EyeOff,
+  Filter,
+  Users,
+  AlertTriangle,
+  ArrowRight,
+  ShieldCheck,
+  ChevronRight,
+  ExternalLink,
+  MessageSquare,
+  BarChart3,
+  Calendar,
+} from "lucide-react";
+import { AppShell } from "@/components/dashboard/AppShell";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Sheet } from "@/components/ui/sheet";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { useScan } from "@/lib/api/queries";
+import { FindingViewModel } from "@/lib/api/adapters";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import { cn } from "@/lib/utils";
 
-type Finding = {
-  id: string; post_id: string; post_caption: string | null; post_is_demo: boolean;
-  author_id: string; author_name: string | null; comment_text: string | null;
-  label: string; severity: string; language_code: string; explanation: string | null;
-  source_type: "demo_fixture"; is_demo: true; confidence: null;
-};
-type RepeatAccount = {
-  author_id: string; display_name: string; flagged_comments: number;
-  affected_posts: number; max_severity: string; meets_incident_threshold: boolean;
-};
-type Stats = {
-  fictional_comments: number; flagged: number; safe_or_uncertain: number; critical: number;
-  severity: Record<string, number>; languages: Record<string, number>;
-  labels: Record<string, number>; repeat_accounts: RepeatAccount[]; repeat_incidents: number;
-};
-type Incident = {
-  id: string; incident_type: string; status: string; max_severity: string;
-  flagged_comment_count: number; affected_post_count: number; summary: string | null;
-  is_demo: true;
-};
-type ScanDetail = {
-  id: string; status: string; scan_mode: "simulated"; is_demo: true;
-  data_source: "scripted_demo_fixtures"; real_comments_fetched: false; ai_executed: false;
-  progress_percent: number; estimated_demo_comments: number;
-  animated_demo_comments_processed: number; started_at: string;
-  completed_at: string | null; duration_seconds: number;
-  selected_posts: Array<{
-    id: string; provider_post_id: string; caption: string | null; post_is_demo: boolean;
-  }>;
-  statistics: Stats | null; findings: Finding[]; incidents: Incident[];
-};
+const STAGES = [
+  { name: "Preparing fictional comments", threshold: 25 },
+  { name: "Applying scripted labels", threshold: 60 },
+  { name: "Preparing demo insights", threshold: 85 },
+  { name: "Grouping fictional accounts", threshold: 100 },
+];
 
-const levelOrder = ["critical", "high", "medium", "low", "none"];
-const levelRank: Record<string, number> = { critical: 5, high: 4, medium: 3, low: 2, none: 1 };
-const languageNames: Record<string, string> = {
-  bn: "Bangla", en: "English", banglish: "Banglish", mixed: "Mixed", unknown: "Unknown",
-};
-const severityClass: Record<string, string> = {
-  critical: "border-rose-600 bg-rose-950/40 text-rose-200",
-  high: "border-orange-600 bg-orange-950/40 text-orange-200",
-  medium: "border-amber-600 bg-amber-950/40 text-amber-200",
-  low: "border-sky-700 bg-sky-950/40 text-sky-200",
-  none: "border-emerald-700 bg-emerald-950/40 text-emerald-200",
-};
+export default function ScanDetailPage() {
+  const params = useParams();
+  const scanId = String(params.id);
 
-function labelize(value: string) { return value.replaceAll("_", " "); }
-function dateTime(value: string | null) {
-  if (!value) return "Not completed";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
+  const { data: scan, isLoading } = useScan(scanId);
 
-function SummaryCard({ title, number, note }: { title: string; number: number; note: string }) {
-  return <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-    <p className="text-xs uppercase tracking-wider text-slate-400">{title}</p>
-    <p className="mt-2 text-3xl font-bold">{number}</p>
-    <p className="mt-1 text-xs text-slate-400">{note}</p>
-  </div>;
-}
+  // Results State
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedFinding, setSelectedFinding] = useState<FindingViewModel | null>(null);
 
-function Bars({ title, values, total }: {
-  title: string; values: Array<{ label: string; count: number }>; total: number;
-}) {
-  return <section className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-    <h3 className="font-bold">{title}</h3>
-    <div className="mt-4 space-y-3">
-      {values.filter((v) => v.count > 0).map((v) => <div key={v.label}>
-        <div className="flex justify-between gap-2 text-sm">
-          <span className="capitalize text-slate-300">{v.label}</span><strong>{v.count}</strong>
-        </div>
-        <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-700">
-          <div className="h-full rounded-full bg-sky-500"
-            style={{ width: String(total ? (v.count / total) * 100 : 0) + "%" }} />
-        </div>
-      </div>)}
-    </div>
-  </section>;
-}
+  // Reveal safeguards: blurred by default
+  const [revealedIds, setRevealedIds] = useState<string[]>([]);
+  const [revealAll, setRevealAll] = useState(false);
 
-export default function SimulatedScanPage() {
-  const params = useParams<{ id: string }>();
-  const id = params.id;
-  const [detail, setDetail] = useState<ScanDetail | null>(null);
-  const [error, setError] = useState("");
-  const [severity, setSeverity] = useState("all");
-  const [language, setLanguage] = useState("all");
-  const [search, setSearch] = useState("");
-  const [flaggedOnly, setFlaggedOnly] = useState(true);
+  // Filters
+  const [filterSeverity, setFilterSeverity] = useState<string>("all");
+  const [filterLabel, setFilterLabel] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pageNumber, setPageNumber] = useState(1);
+  const pageSize = 12;
 
-  useEffect(() => {
-    let disposed = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function poll() {
-      try {
-        const result = await api<ScanDetail>("/scans/" + encodeURIComponent(id));
-        if (disposed) return;
-        setDetail(result);
-        setError("");
-        if (result.status === "running") timer = setTimeout(poll, 900);
-      } catch (err) {
-        if (!disposed) setError(err instanceof Error ? err.message : "Could not load scan results.");
+  function toggleReveal(id: string) {
+    setRevealedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  const isCompleted = scan?.status === "completed";
+  const progressPercent = scan?.progressPercent || 0;
+
+  // Filtered Findings
+  const filteredFindings = useMemo(() => {
+    if (!scan?.findings) return [];
+    return scan.findings.filter((f) => {
+      if (filterSeverity !== "all" && f.severity !== filterSeverity) return false;
+      if (filterLabel !== "all" && f.label !== filterLabel) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const text = (f.commentText || "").toLowerCase();
+        const author = (f.authorName || "").toLowerCase();
+        if (!text.includes(q) && !author.includes(q)) return false;
       }
-    }
-    if (id) void poll();
-    return () => { disposed = true; if (timer) clearTimeout(timer); };
-  }, [id]);
+      return true;
+    });
+  }, [scan?.findings, filterSeverity, filterLabel, searchQuery]);
 
-  const completed = detail?.status === "completed";
-  const stats = completed ? detail?.statistics : null;
-  const visible = useMemo(() => (detail?.findings ?? []).filter((finding) => {
-    if (flaggedOnly && finding.label === "safe") return false;
-    if (severity !== "all" && finding.severity !== severity) return false;
-    if (language !== "all" && finding.language_code !== language) return false;
-    const q = search.trim().toLowerCase();
-    return !q || [finding.comment_text, finding.author_name, finding.post_caption, finding.label]
-      .some((value) => (value ?? "").toLowerCase().includes(q));
-  }).sort((a,b) => levelRank[b.severity] - levelRank[a.severity]),
-  [detail?.findings, flaggedOnly, severity, language, search]);
+  // Paginated Findings
+  const paginatedFindings = useMemo(() => {
+    const start = (pageNumber - 1) * pageSize;
+    return filteredFindings.slice(start, start + pageSize);
+  }, [filteredFindings, pageNumber, pageSize]);
 
-  return <main className="mx-auto min-h-screen max-w-6xl px-5 py-10 text-slate-100 md:px-7">
-    <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <Link href="/posts" className="text-sm font-semibold text-sky-300 hover:underline">← Back to Facebook Posts</Link>
-        <h1 className="mt-3 text-3xl font-bold">Simulated Harassment Scan</h1>
-        <p className="mt-2 text-sm text-slate-400">Phase 4 · Scripted multilingual examples · Timed demo progress</p>
-      </div>
-      <Link href="/scans" className="rounded-lg border border-slate-600 px-4 py-2 text-sm hover:bg-slate-800">Scan history</Link>
-    </header>
+  // Chart Data: Severity distribution
+  const severityChartData = useMemo(() => {
+    if (!scan?.statistics?.severity) return [];
+    const s = scan.statistics.severity;
+    return [
+      { name: "Critical", count: s.critical || 0, color: "var(--destructive)" },
+      { name: "High", count: s.high || 0, color: "oklch(0.68 0.18 45)" },
+      { name: "Medium", count: s.medium || 0, color: "oklch(0.7 0.12 184)" },
+      { name: "Low", count: s.low || 0, color: "oklch(0.5 0.05 184)" },
+    ];
+  }, [scan?.statistics?.severity]);
 
-    <aside role="note" className="mb-7 rounded-xl border-2 border-amber-600 bg-amber-950/30 p-5">
-      <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-extrabold text-slate-950">DEMO DATA — FICTIONAL</span>
-      <h2 className="mt-3 font-bold text-amber-100">Not a real harassment assessment</h2>
-      <p className="mt-2 text-sm leading-6 text-amber-100">
-        Selected Facebook posts may be real. All displayed comments, author names, labels,
-        severities, repeat-account indicators and incidents are fictional scripted examples.
-        No Facebook comments are retrieved, no AI models are executed, and no actual people are accused.
-      </p>
-    </aside>
+  // Chart Data: Flagged per Post
+  const postBreakdownData = useMemo(() => {
+    if (!scan?.findings || !scan?.selectedPosts) return [];
+    const postCounts: Record<string, number> = {};
+    scan.findings.forEach((f) => {
+      if (f.label !== "safe") {
+        postCounts[f.postId] = (postCounts[f.postId] || 0) + 1;
+      }
+    });
 
-    {error && <p role="alert" className="mb-5 rounded-lg border border-rose-700 bg-rose-950/40 p-4 text-sm text-rose-200">{error}</p>}
-    {!detail && !error && <p className="text-slate-300">Loading demo scan…</p>}
+    return scan.selectedPosts.map((p, idx) => ({
+      name: `Post #${idx + 1}`,
+      flagged: postCounts[p.id] || 0,
+      caption: p.caption ? p.caption.slice(0, 35) + "..." : `Post ${idx + 1}`,
+    }));
+  }, [scan?.findings, scan?.selectedPosts]);
 
-    {detail && <>
-      <section className="mb-6 rounded-xl border border-slate-700 bg-slate-900 p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-sky-300">Simulated run</p>
-            <h2 className="mt-2 text-xl font-bold">{completed ? "Demo scan completed" : "Simulating comment review…"}</h2>
-            <p className="mt-2 text-xs text-slate-400">
-              Started {dateTime(detail.started_at)} · {detail.selected_posts.length} selected posts
-            </p>
-          </div>
-          <span className="rounded-full border border-sky-700 px-3 py-1 text-xs font-semibold text-sky-200">
-            {completed ? "Completed · Demo" : "Running · Demo"}
-          </span>
+  if (isLoading && !scan) {
+    return (
+      <AppShell title="Scan Loading">
+        <div className="py-20 text-center">
+          <p className="text-sm text-muted-foreground animate-pulse">Loading scan data...</p>
         </div>
-        <div className="mt-6 h-4 overflow-hidden rounded-full bg-slate-700" aria-label="Scripted demo progress">
-          <div className="h-full rounded-full bg-sky-500 transition-[width] duration-700"
-            style={{ width: String(detail.progress_percent) + "%" }} />
-        </div>
-        <div className="mt-2 flex flex-wrap justify-between gap-2 text-sm text-slate-300">
-          <span>{detail.progress_percent}% of scripted timeline</span>
-          <span>{detail.animated_demo_comments_processed} / {detail.estimated_demo_comments} fictional examples</span>
-        </div>
-        {!completed && <p className="mt-4 text-sm text-amber-200">
-          This is a clock-based animation, not actual AI processing. Results appear after the demo timeline.
-        </p>}
-      </section>
+      </AppShell>
+    );
+  }
 
-      <section className="mb-7 rounded-xl border border-slate-700 bg-slate-900 p-5">
-        <h2 className="font-bold">Selected posts</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {detail.selected_posts.map((post) => <span key={post.id}
-            className="max-w-full truncate rounded-full border border-slate-600 px-3 py-1 text-xs">
-            {post.post_is_demo ? "Demo post" : "Real post"}: {post.caption?.slice(0,60) || post.provider_post_id}
-          </span>)}
-        </div>
-        <p className="mt-3 text-xs text-slate-400">
-          Real post context only. The simulated comments below were not posted by Facebook users.
-        </p>
-      </section>
+  return (
+    <AppShell title={isCompleted ? `Scan Results #${scanId.slice(0, 8)}` : "Safety Scan in Progress"}>
+      <div className="space-y-6">
+        {/* RUNNING STATE */}
+        {!isCompleted && (
+          <div aria-live="polite" className="max-w-2xl mx-auto py-12">
+            <Card className="border border-border bg-card p-6 sm:p-8 shadow-xs">
+              <div className="text-center mb-6">
+                <span className="size-2 rounded-full bg-primary inline-block animate-ping mb-3" />
+                <CardTitle className="text-2xl font-bold">Simulated Safety Scan Running</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground mt-1">
+                  Preparing fictional comments and scripted classifications. No Facebook comments are fetched and no AI inference is performed.
+                </CardDescription>
+              </div>
 
-      {stats && <>
-        <section aria-label="Fictional scan statistics" className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryCard title="Fictional comments" number={stats.fictional_comments} note="Not actual Facebook comment counts" />
-          <SummaryCard title="Flagged examples" number={stats.flagged} note="Scripted labels, not AI classifications" />
-          <SummaryCard title="Critical examples" number={stats.critical} note="No real-world threats were detected" />
-          <SummaryCard title="Recurring demo accounts" number={stats.repeat_accounts.length} note="Across at least 2 selected posts" />
-        </section>
-        <section className="mb-7 grid gap-4 md:grid-cols-3">
-          <Bars title="Severity · Demo Data" total={stats.fictional_comments}
-            values={levelOrder.map((label) => ({ label, count: stats.severity[label] ?? 0 }))} />
-          <Bars title="Languages · Demo Data" total={stats.fictional_comments}
-            values={Object.entries(stats.languages).map(([code,count]) => ({label: languageNames[code] || code, count}))} />
-          <Bars title="Labels · Demo Data" total={stats.fictional_comments}
-            values={Object.entries(stats.labels).map(([label,count]) => ({label: labelize(label), count})).sort((a,b)=>b.count-a.count)} />
-        </section>
-
-        <section className="mb-7 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-            <h2 className="text-lg font-bold">Recurring fictional accounts</h2>
-            <p className="mt-2 text-xs text-slate-400">
-              Recurrence means 2+ selected posts; a repeat-harassment incident requires 3+ posts.
-            </p>
-            <div className="mt-4 space-y-3">
-              {stats.repeat_accounts.length === 0 && <p className="text-sm text-slate-400">
-                No cross-post activity for these fixtures. Try selecting two or more posts.
-              </p>}
-              {stats.repeat_accounts.map((account) => <div key={account.author_id}
-                className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <strong className="text-sm">{account.display_name}</strong>
-                  <span className="text-xs text-amber-200">
-                    {account.meets_incident_threshold ? "3+ posts · Demo incident" : "Below incident threshold"}
-                  </span>
+              {/* Progress Bar & Counter */}
+              <div className="space-y-2 mb-8">
+                <div className="flex justify-between text-xs text-muted-foreground font-mono">
+                  <span>{scan?.processedComments || 0} fictional comments processed</span>
+                  <span className="font-semibold text-foreground">{progressPercent}%</span>
                 </div>
-                <p className="mt-2 text-xs text-slate-300">
-                  {account.flagged_comments} fictional flags · {account.affected_posts} posts
+                <Progress value={progressPercent} className="h-2.5" />
+              </div>
+
+              {/* Four Pipeline Stages */}
+              <div className="space-y-3 pt-4 border-t">
+                {STAGES.map((stg) => {
+                  const isDone = progressPercent >= stg.threshold;
+                  const isCurrent =
+                    progressPercent < stg.threshold &&
+                    progressPercent >= stg.threshold - 25;
+
+                  return (
+                    <div
+                      key={stg.name}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-md border text-xs transition-colors",
+                        isDone
+                          ? "bg-muted/40 border-border/60 text-foreground"
+                          : isCurrent
+                          ? "bg-primary/5 border-primary/40 text-foreground font-medium"
+                          : "opacity-40 border-border/40 text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {isDone ? (
+                          <CheckCircle2 className="size-4 text-primary" />
+                        ) : isCurrent ? (
+                          <Clock className="size-4 text-primary animate-spin" />
+                        ) : (
+                          <div className="size-4 rounded-full border border-muted-foreground/40" />
+                        )}
+                        <span>{stg.name}</span>
+                      </div>
+                      <span className="font-mono text-[11px]">
+                        {isDone ? "Done" : isCurrent ? "Processing" : "Pending"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* COMPLETED RESULTS VIEW */}
+        {isCompleted && (
+          <div className="space-y-6">
+            {/* Results Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold tracking-tight">Scan Summary</h2>
+                  <Badge variant="success" className="text-xs">
+                    Completed
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Started {new Date(scan.startedAt).toLocaleString()} · Scanned{" "}
+                  {scan.selectedPosts.length} selected post(s).
                 </p>
-              </div>)}
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-            <h2 className="text-lg font-bold">Fictional incidents</h2>
-            <p className="mt-2 text-xs text-slate-400">Not evidence, accusations or law-enforcement reports.</p>
-            <div className="mt-4 space-y-3">
-              {detail.incidents.length === 0 && <p className="text-sm text-slate-400">
-                No scripted incident entries for this run.
-              </p>}
-              {detail.incidents.map((incident) => <div key={incident.id}
-                className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
-                <div className="flex flex-wrap justify-between gap-2">
-                  <strong className="text-sm capitalize">{labelize(incident.incident_type)}</strong>
-                  <span className="text-xs text-amber-200">{incident.max_severity}</span>
-                </div>
-                <p className="mt-2 text-xs text-slate-300">
-                  {incident.flagged_comment_count} fictional flags · {incident.affected_post_count} posts
-                </p>
-                <p className="mt-1 text-xs text-amber-200">{incident.summary}</p>
-              </div>)}
-            </div>
-          </div>
-        </section>
+              </div>
 
-        <section className="rounded-xl border border-slate-700 bg-slate-900 p-5 md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold">Scripted comment examples</h2>
-              <p className="mt-1 text-xs text-slate-400">
-                {visible.length} displayed of {stats.fictional_comments} examples. No model confidence scores exist.
-              </p>
+              <div className="flex items-center gap-2">
+                <Link href="/posts">
+                  <Button size="sm" variant="outline">
+                    Scan more posts
+                  </Button>
+                </Link>
+                <Link href="/reports">
+                  <Button size="sm" variant="default" className="gap-1.5">
+                    Prepare report
+                    <ArrowRight className="size-3.5" />
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <span className="rounded-full border border-amber-600 px-3 py-1 text-xs font-bold text-amber-200">Demo fixtures only</span>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={flaggedOnly} onChange={(e)=>setFlaggedOnly(e.target.checked)}
-                className="h-4 w-4 accent-sky-500" /> Flagged only
-            </label>
-            <select value={severity} onChange={(e)=>setSeverity(e.target.value)}
-              aria-label="Filter fictional severity"
-              className="rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm">
-              <option value="all">All severities</option>
-              {levelOrder.map((level)=><option key={level} value={level}>{level}</option>)}
-            </select>
-            <select value={language} onChange={(e)=>setLanguage(e.target.value)}
-              aria-label="Filter fictional language"
-              className="rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm">
-              <option value="all">All languages</option>
-              <option value="bn">Bangla</option>
-              <option value="banglish">Banglish</option>
-              <option value="en">English</option>
-            </select>
-            <label className="sr-only" htmlFor="demo-comment-search">Search fictional comments</label>
-            <input id="demo-comment-search" type="search" placeholder="Search scripted examples"
-              value={search} onChange={(e)=>setSearch(e.target.value)}
-              className="min-w-48 flex-1 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm" />
-          </div>
 
-          <div className="mt-5 grid gap-3">
-            {visible.length === 0 && <p className="text-sm text-slate-400">No fictional examples match these filters.</p>}
-            {visible.map((f) => <article key={f.id}
-              className="rounded-lg border border-slate-700 bg-slate-950/60 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <strong className="text-sm">{f.author_name}</strong>
-                  <span className="text-xs text-amber-200">Fictional account</span>
-                  <span className="text-xs text-slate-400">{languageNames[f.language_code] || f.language_code}</span>
+            {/* Results Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-6">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="flagged">
+                  Flagged Comments ({filteredFindings.length})
+                </TabsTrigger>
+                <TabsTrigger value="repeat">
+                  Repeat Accounts ({scan.statistics?.repeatAccounts.length || 0})
+                </TabsTrigger>
+              </TabsList>
+
+              {/* TAB 1: OVERVIEW */}
+              <TabsContent value="overview" className="space-y-6">
+                {/* Metric Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="border p-4 bg-card shadow-xs">
+                    <p className="text-xs text-muted-foreground">Fictional Demo Comments</p>
+                    <p className="text-2xl font-bold mt-1 text-foreground">
+                      {scan.statistics?.totalComments || 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Across all posts</p>
+                  </Card>
+
+                  <Card className="border p-4 bg-card shadow-xs">
+                    <p className="text-xs text-muted-foreground">Flagged Comments</p>
+                    <p className="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">
+                      {scan.statistics?.flagged || 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Policy violations</p>
+                  </Card>
+
+                  <Card className="border p-4 bg-card shadow-xs">
+                    <p className="text-xs text-muted-foreground">Critical Threats</p>
+                    <p className="text-2xl font-bold mt-1 text-destructive">
+                      {scan.statistics?.critical || 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Requires attention</p>
+                  </Card>
+
+                  <Card className="border p-4 bg-card shadow-xs">
+                    <p className="text-xs text-muted-foreground">Repeat Accounts</p>
+                    <p className="text-2xl font-bold mt-1 text-destructive">
+                      {scan.statistics?.repeatAccounts.length || 0}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Multi-post actors</p>
+                  </Card>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-slate-600 px-2 py-1 text-xs capitalize">{labelize(f.label)}</span>
-                  <span className={"rounded-full border px-2 py-1 text-xs " + (severityClass[f.severity] || severityClass.none)}>
-                    {f.severity}
-                  </span>
+
+                {/* Visual Charts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Severity Breakdown Bar Chart */}
+                  <Card className="border p-5 bg-card shadow-xs">
+                    <h3 className="text-sm font-semibold text-foreground mb-4">
+                      Severity Distribution
+                    </h3>
+                    <div className="h-56 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={severityChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <XAxis dataKey="name" fontSize={11} stroke="currentColor" className="text-muted-foreground" />
+                          <YAxis fontSize={11} stroke="currentColor" className="text-muted-foreground" />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "var(--card)",
+                              borderColor: "var(--border)",
+                              borderRadius: "0.5rem",
+                              fontSize: "12px",
+                            }}
+                          />
+                          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                            {severityChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
+
+                  {/* Flagged Comments per Post */}
+                  <Card className="border p-5 bg-card shadow-xs">
+                    <h3 className="text-sm font-semibold text-foreground mb-4">
+                      Flagged Comments by Post
+                    </h3>
+                    <div className="h-56 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={postBreakdownData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <XAxis dataKey="name" fontSize={11} stroke="currentColor" className="text-muted-foreground" />
+                          <YAxis fontSize={11} stroke="currentColor" className="text-muted-foreground" />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "var(--card)",
+                              borderColor: "var(--border)",
+                              borderRadius: "0.5rem",
+                              fontSize: "12px",
+                            }}
+                          />
+                          <Bar dataKey="flagged" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* TAB 2: FLAGGED COMMENTS TABLE */}
+              <TabsContent value="flagged" className="space-y-4">
+                {/* Table Filter Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border bg-card shadow-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Free Search */}
+                    <div className="relative w-48 sm:w-64">
+                      <Search className="size-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search comments or author..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setPageNumber(1);
+                        }}
+                        className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+
+                    {/* Severity Filter */}
+                    <select
+                      value={filterSeverity}
+                      onChange={(e) => {
+                        setFilterSeverity(e.target.value);
+                        setPageNumber(1);
+                      }}
+                      className="h-8 rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="all">All Severities</option>
+                      <option value="critical">Critical</option>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+
+                    {/* Label Filter */}
+                    <select
+                      value={filterLabel}
+                      onChange={(e) => {
+                        setFilterLabel(e.target.value);
+                        setPageNumber(1);
+                      }}
+                      className="h-8 rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="all">All Categories</option>
+                      <option value="harassment">Harassment</option>
+                      <option value="bullying">Bullying</option>
+                      <option value="threat">Threat</option>
+                      <option value="body_shaming">Body Shaming</option>
+                      <option value="hate">Hate Speech</option>
+                    </select>
+                  </div>
+
+                  {/* Reveal All Toggle */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRevealAll((prev) => !prev)}
+                      className="gap-1.5 text-xs"
+                    >
+                      {revealAll ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                      {revealAll ? "Hide all abusive text" : "Reveal all text"}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Comments Table */}
+                <Card className="border bg-card shadow-xs overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[180px]">Author</TableHead>
+                        <TableHead>Comment Remark (Protected)</TableHead>
+                        <TableHead className="w-[110px]">Category</TableHead>
+                        <TableHead className="w-[100px]">Severity</TableHead>
+                        <TableHead className="w-[90px]">Language</TableHead>
+                        <TableHead className="w-[80px] text-right">Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedFindings.length > 0 ? (
+                        paginatedFindings.map((finding) => {
+                          const isRevealed =
+                            revealAll || revealedIds.includes(finding.id);
+
+                          return (
+                            <TableRow
+                              key={finding.id}
+                              onClick={() => setSelectedFinding(finding)}
+                              className="cursor-pointer"
+                            >
+                              <TableCell className="font-medium text-xs">
+                                {finding.authorName || "Anonymous"}
+                              </TableCell>
+
+                              <TableCell className="text-xs">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span
+                                    className={cn(
+                                      "transition-all duration-200 select-none",
+                                      isRevealed
+                                        ? "filter-none text-foreground font-normal"
+                                        : "filter blur-xs text-muted-foreground opacity-60"
+                                    )}
+                                  >
+                                    {finding.commentText || "Empty comment"}
+                                  </span>
+
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleReveal(finding.id);
+                                    }}
+                                    title={isRevealed ? "Hide" : "Reveal"}
+                                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                                  >
+                                    {isRevealed ? (
+                                      <EyeOff className="size-3.5" />
+                                    ) : (
+                                      <Eye className="size-3.5" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </TableCell>
+
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize text-[11px]">
+                                  {finding.label.replaceAll("_", " ")}
+                                </Badge>
+                              </TableCell>
+
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    finding.severity === "critical" || finding.severity === "high"
+                                      ? "destructive"
+                                      : finding.severity === "medium"
+                                      ? "warning"
+                                      : "muted"
+                                  }
+                                  className="capitalize text-[11px]"
+                                >
+                                  {finding.severity}
+                                </Badge>
+                              </TableCell>
+
+                              <TableCell className="text-xs uppercase font-mono text-muted-foreground">
+                                {finding.languageCode}
+                              </TableCell>
+
+                              <TableCell className="text-right">
+                                <ChevronRight className="size-4 inline-block text-muted-foreground" />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">
+                            No comments match the selected filter criteria.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </Card>
+
+                {/* Table Pagination */}
+                {filteredFindings.length > pageSize && (
+                  <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
+                    <span>
+                      Showing {(pageNumber - 1) * pageSize + 1}–
+                      {Math.min(pageNumber * pageSize, filteredFindings.length)} of{" "}
+                      {filteredFindings.length} comments
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pageNumber === 1}
+                        onClick={() => setPageNumber((p) => p - 1)}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pageNumber * pageSize >= filteredFindings.length}
+                        onClick={() => setPageNumber((p) => p + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* TAB 3: REPEAT ACCOUNTS */}
+              <TabsContent value="repeat" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {scan.statistics?.repeatAccounts.map((account) => (
+                    <Card key={account.authorId} className="border bg-card p-5 shadow-xs">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex size-9 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+                            <Users className="size-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              {account.displayName}
+                            </h4>
+                            <p className="text-[11px] text-muted-foreground font-mono">
+                              {account.authorId}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={account.maxSeverity === "critical" ? "destructive" : "warning"}
+                          className="capitalize text-xs"
+                        >
+                          {account.maxSeverity}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs py-3 border-y my-3">
+                        <div>
+                          <p className="text-muted-foreground">Flagged Comments</p>
+                          <p className="font-semibold text-foreground mt-0.5 text-sm">
+                            {account.flaggedComments}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Targeted Posts</p>
+                          <p className="font-semibold text-foreground mt-0.5 text-sm">
+                            {account.affectedPosts} post(s)
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-muted-foreground">
+                          {account.meetsIncidentThreshold
+                            ? "Cross-post campaign flagged"
+                            : "Repeated hostility observed"}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSearchQuery(account.displayName);
+                            setActiveTab("flagged");
+                          }}
+                        >
+                          View remarks →
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+
+        {/* Comment Detail Drawer (Sheet) */}
+        <Sheet
+          open={selectedFinding !== null}
+          onOpenChange={(open) => !open && setSelectedFinding(null)}
+          title="Comment Safety Inspection"
+          description="Detailed classification parameters and original context."
+        >
+          {selectedFinding && (
+            <div className="space-y-5 text-sm">
+              {/* Abusive text preview */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Comment Remark
+                </label>
+                <div className="p-3.5 rounded-md border bg-muted/30 text-sm leading-relaxed text-foreground">
+                  {selectedFinding.commentText}
                 </div>
               </div>
-              <p className="mt-3 whitespace-pre-wrap break-words text-sm">{f.comment_text}</p>
-              <p className="mt-2 text-xs text-slate-400">{f.explanation}</p>
-              <p className="mt-3 truncate text-xs text-slate-500">
-                {f.post_is_demo ? "Demo" : "Real"} selected post: {f.post_caption || f.post_id}
-              </p>
-              <p className="mt-2 text-xs font-semibold text-amber-200">
-                DEMO DATA · Scripted label · Not a real Facebook comment
-              </p>
-            </article>)}
-          </div>
-        </section>
-      </>}
-    </>}
-  </main>;
+
+              {/* Classification metadata */}
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-md border bg-card">
+                <div>
+                  <p className="text-xs text-muted-foreground">Policy Category</p>
+                  <p className="font-semibold text-foreground mt-0.5 capitalize">
+                    {selectedFinding.label.replaceAll("_", " ")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Severity Level</p>
+                  <Badge
+                    variant={
+                      selectedFinding.severity === "critical" || selectedFinding.severity === "high"
+                        ? "destructive"
+                        : "warning"
+                    }
+                    className="capitalize text-xs mt-0.5"
+                  >
+                    {selectedFinding.severity}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Detected Language</p>
+                  <p className="font-semibold text-foreground mt-0.5 uppercase font-mono">
+                    {selectedFinding.languageCode}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Author</p>
+                  <p className="font-semibold text-foreground mt-0.5">
+                    {selectedFinding.authorName || "Anonymous"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Explanation & Reason code */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Safety Rationale
+                </label>
+                <p className="text-xs text-foreground leading-relaxed p-3 rounded-md border bg-background">
+                  {selectedFinding.explanation || "Scripted demonstration classification; not a live AI determination."}
+                </p>
+              </div>
+
+              {/* Associated Post Context */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Associated Facebook Post
+                </label>
+                <div className="p-3 rounded-md border bg-muted/20 text-xs text-muted-foreground">
+                  <p className="text-foreground line-clamp-2">
+                    {selectedFinding.postCaption || "Post update"}
+                  </p>
+                  <p className="font-mono text-[10px] mt-1 text-muted-foreground">
+                    Post ID: {selectedFinding.postId}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedFinding(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </Sheet>
+      </div>
+    </AppShell>
+  );
 }
