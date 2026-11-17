@@ -24,6 +24,7 @@ import {
   useDisconnectPage,
   useDemoConnect,
   useScans,
+  useScan,
 } from "@/lib/api/queries";
 import { toast } from "sonner";
 
@@ -91,7 +92,9 @@ function DashboardContent() {
   const hasMultipleUnselected = pages.length > 1 && !selectedPage;
 
   // Latest completed scan for summary metrics
-  const latestCompletedScan = scans?.find((s) => s.status === "completed");
+  const latestCompletedSummary = scans?.find((s) => s.status === "completed");
+  // GET /scans is a summary listing; fetch details for accurate metrics.
+  const { data: latestCompletedScan } = useScan(latestCompletedSummary?.id || "");
 
   function handleConnectReal() {
     window.location.assign("/api/facebook/connect");
@@ -139,7 +142,7 @@ function DashboardContent() {
               </div>
               <CardTitle className="text-xl font-bold">Connect your Facebook Page</CardTitle>
               <CardDescription className="text-sm text-muted-foreground leading-relaxed max-w-2xl mt-1.5">
-                Link a Facebook Page you manage to review comments and identify repeat abuse. We only request read-only access to published posts. We never post, delete, or take actions on your behalf.
+                Connect a Facebook Page you manage to view real published posts and explore a clearly labeled fictional safety demo. No real Facebook comments are collected or analyzed.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 pt-0">
@@ -177,7 +180,7 @@ function DashboardContent() {
             <CardHeader className="p-6">
               <CardTitle className="text-lg font-bold">Select an Active Facebook Page</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Multiple Facebook Pages are available. Choose which Page to monitor for comment safety.
+                Multiple authorized Pages are available. Choose one to view published posts.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 pt-0 space-y-3">
@@ -217,6 +220,7 @@ function DashboardContent() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="text-lg font-bold text-foreground">{selectedPage.name}</h2>
+                        {selectedPage.isDemo && <Badge variant="warning">Fictional Page · Demo Data</Badge>}
                         <Badge variant="success" className="gap-1 text-xs">
                           <CheckCircle2 className="size-3" /> Connected
                         </Badge>
@@ -267,6 +271,10 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground" role="note">
+              <strong>Demo Data:</strong> Scan comments, classifications, repeat accounts and metrics below are fictional scripted examples, even when the connected Facebook Page and posts are real. No live AI or Facebook comment retrieval runs.
+            </div>
+
             {/* Metrics Overview from Latest Scan */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="border border-border p-4 bg-card shadow-xs">
@@ -274,7 +282,7 @@ function DashboardContent() {
                 <p className="text-2xl font-bold mt-1 text-foreground">
                   {latestCompletedScan?.statistics?.totalComments ?? 0}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">From recent scan</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">From fictional demo scan</p>
               </Card>
 
               <Card className="border border-border p-4 bg-card shadow-xs">
@@ -282,7 +290,7 @@ function DashboardContent() {
                 <p className="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">
                   {latestCompletedScan?.statistics?.flagged ?? 0}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Policy warnings</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Fictional findings</p>
               </Card>
 
               <Card className="border border-border p-4 bg-card shadow-xs">
@@ -290,7 +298,7 @@ function DashboardContent() {
                 <p className="text-2xl font-bold mt-1 text-destructive">
                   {latestCompletedScan?.statistics?.repeatAccounts.length ?? 0}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Multi-post hostility</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Fictional repeat accounts</p>
               </Card>
 
               <Card className="border border-border p-4 bg-card shadow-xs">
@@ -298,7 +306,7 @@ function DashboardContent() {
                 <p className="text-2xl font-bold mt-1 capitalize text-destructive">
                   {latestCompletedScan?.statistics?.critical ? "Critical" : "Standard"}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Safety threshold</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Scripted severity</p>
               </Card>
             </div>
 
@@ -309,7 +317,7 @@ function DashboardContent() {
                   Ready to scan published Page posts?
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Select posts to analyze comments, discover repeat accounts, and export reviews.
+                  Select published posts to explore a fictional scripted scan. Nothing is exported or submitted.
                 </p>
               </div>
               <Link href="/posts">
@@ -359,7 +367,7 @@ function DashboardContent() {
                           </div>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
                             Started: {new Date(scan.startedAt).toLocaleString()} ·{" "}
-                            {scan.selectedPosts.length} post(s)
+                            {scan.selectedPostsCount} post(s)
                           </p>
                         </div>
 
