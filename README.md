@@ -20,6 +20,8 @@ This package contains the **existing Phase 1 starter with Phase 2 changes** (ret
 
 Read **[docs/PHASE2_SETUP.md](docs/PHASE2_SETUP.md)** for Facebook connection setup, then **[docs/PHASE3_SETUP.md](docs/PHASE3_SETUP.md)** for real post retrieval, and **[docs/PHASE4_SETUP.md](docs/PHASE4_SETUP.md)** for simulated scanning, exact local commands, PostgreSQL verification and demo caveats.
 
+For customer onboarding and Facebook's **App not active** / App Review restrictions, see **[docs/FACEBOOK_PUBLIC_ONBOARDING.md](docs/FACEBOOK_PUBLIC_ONBOARDING.md)**. Customers connect managed Facebook **Pages**, never personal profiles; public Facebook OAuth requires Meta activation and the relevant advanced permissions.
+
 ## Important database notes
 
 - The existing PostgreSQL schema is authoritative. The source SQL is included at `database/SafeSphere_AI_Database_Schema_v1.sql` for future reproducibility.

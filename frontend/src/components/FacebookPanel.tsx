@@ -24,7 +24,7 @@ type ConnectionResponse = {
 const messageForStatus: Record<string, string> = {
   connected: "Facebook authorization completed. Your accessible Pages are listed below.",
   cancelled: "Facebook authorization was cancelled or declined. You can try again.",
-  no_pages: "Meta did not return a Page access token. Check Page permissions and your Facebook account's Page access.",
+  no_pages: "Only Facebook Pages you manage can be connected. Personal Facebook profiles and timelines are not supported. Meta did not return any eligible Page. Confirm that you manage a Facebook Page, granted SafeSphere access to that Page, and try again.",
   error: "Facebook authorization did not finish. Check your app credentials, Page permissions and backend logs (never log tokens).",
   invalid_state: "Authorization expired or was already used. Please start Connect Facebook again.",
   session_expired: "Your SafeSphere login session expired during Facebook authorization. Log in again and retry.",
@@ -105,7 +105,7 @@ export default function FacebookPanel({ canManage }: { canManage: boolean }) {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-sky-400">Phase 2 · Facebook connection</p>
           <h2 className="mt-1 text-xl font-bold">Your Facebook Pages</h2>
-          <p className="mt-1 text-sm text-slate-400">Authorize Pages you manage. SafeSphere will never publish or delete posts.</p>
+          <p className="mt-1 text-sm text-slate-400">Authorize Facebook Pages you manage. Personal profiles, profiles' timelines and groups cannot be connected.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -125,13 +125,35 @@ export default function FacebookPanel({ canManage }: { canManage: boolean }) {
         </div>
       </div>
 
+      <aside className="mt-5 rounded-xl border border-sky-800/80 bg-sky-950/30 p-4 text-sm text-sky-100" aria-label="Facebook Page connection eligibility">
+        <p className="font-bold">Facebook Pages only — personal profiles are not supported</p>
+        <p className="mt-2 leading-6 text-slate-300">
+          You sign in to Facebook using your personal account to prove you manage a Page.
+          SafeSphere connects only the Pages that Meta lets you authorize, not your personal profile,
+          timeline, friends, or private posts. If Meta returns no eligible Page, the connection is rejected
+          and you will see a Page-only warning.
+        </p>
+        <p className="mt-2 text-slate-300">
+          You do not need a Meta Developer account to use this service once the SafeSphere Meta app
+          has been approved for public Page access. Until then, Meta may restrict Facebook authorization
+          to app roles and testers.
+        </p>
+        <details className="mt-3 rounded-lg border border-slate-700/70 p-3">
+          <summary className="cursor-pointer font-semibold text-sky-300">Facebook says &ldquo;App not active&rdquo;?</summary>
+          <p className="mt-2 text-slate-300">
+            This block is issued by Meta before SafeSphere can read your Pages. The SafeSphere app
+            administrator must check Meta app status, access restrictions and required approvals.
+            Changing your Facebook password or creating a Developer account will not fix it.
+          </p>
+        </details>
+      </aside>
       {!canManage && <p className="mt-4 text-sm text-amber-200">Only workspace owners and admins can change Facebook connections.</p>}
       {data && !data.facebook_ready && (
         <p role="status" className="mt-4 rounded-lg border border-amber-700/60 bg-amber-950/20 p-3 text-sm text-amber-200">
           Live Facebook OAuth is not configured yet. Add the Meta credentials and Fernet key to backend/.env, then restart FastAPI.
         </p>
       )}
-      {notice && <p role="status" className="mt-4 rounded-lg border border-sky-700/60 bg-sky-950/40 p-3 text-sm text-sky-100">{notice}</p>}
+      {notice && <p role={notice === messageForStatus.no_pages ? "alert" : "status"} className={"mt-4 rounded-lg border p-3 text-sm " + (notice === messageForStatus.no_pages ? "border-amber-600 bg-amber-950/40 text-amber-100" : "border-sky-700/60 bg-sky-950/40 text-sky-100")}>{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-lg border border-red-700/60 bg-red-950/40 p-3 text-sm text-red-200">{error}</p>}
 
       <div className="mt-5">
@@ -139,7 +161,7 @@ export default function FacebookPanel({ canManage }: { canManage: boolean }) {
           <p className="text-sm text-slate-400">Loading your Page connections…</p>
         ) : pages.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-600 p-6 text-sm text-slate-300">
-            No Facebook Pages connected yet. Choose <strong>Connect Facebook</strong> to authorize a test Page.
+            No Facebook Pages connected yet. Choose <strong>Connect Facebook</strong> and grant access to a Page you manage. Personal profiles cannot be added as Pages.
           </div>
         ) : (
           <div className="grid gap-3">
