@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # SafeSphere AI — Privacy Policy
 
 **Last updated:** November 18, 2026
@@ -46,6 +50,8 @@ We do not sell personal information. Application hosting and database providers 
 
 ## 7. Data Retention and Deletion
 
+The prototype currently uses an email-based account-deletion request process rather than an automated self-service account-deletion feature. See our [Data Deletion Instructions](data-deletion.html).
+
 We retain information for as long as it is reasonably necessary to operate the account or fulfill legitimate operational and legal requirements.
 
 Users may request deletion of their SafeSphere AI account, stored Facebook Page connections, cached posts, and associated demonstration data by contacting **shajedulkabir106@gmail.com**.
@@ -61,3 +67,7 @@ For account information, privacy concerns, or deletion requests, contact **shaje
 ## 9. Changes to This Policy
 
 We may update this policy as the platform evolves. The current version will be published on this page.
+
+---
+
+[SafeSphere AI — Legal & Support](index.html) · [Terms of Service](terms-of-service.html) · [Data Deletion Instructions](data-deletion.html)
