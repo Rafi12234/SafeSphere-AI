@@ -68,8 +68,8 @@ export function useScans() {
   return useQuery({
     queryKey: ["scans"],
     queryFn: async () => {
-      const data = await apiClient<any[]>("/scans");
-      return (data || []).map(adaptScan);
+      const data = await apiClient<{ scans: any[]; is_demo: boolean }>("/scans");
+      return (data.scans || []).map(adaptScan);
     },
   });
 }
