@@ -1,0 +1,6 @@
+# GitHub Pages (Settings > Pages > Deploy from a branch: main /docs).
+# A public legal-information site; NOT the SafeSphere SaaS application.
+title: SafeSphere AI
+description: Privacy, terms of service, and user-data deletion instructions
+theme: jekyll-theme-cayman
+markdown: kramdown
