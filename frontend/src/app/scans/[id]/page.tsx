@@ -49,10 +49,10 @@ import {
 import { cn } from "@/lib/utils";
 
 const STAGES = [
-  { name: "Fetching comments", threshold: 25 },
-  { name: "Analyzing text", threshold: 60 },
-  { name: "Analyzing media", threshold: 85 },
-  { name: "Grouping repeat accounts", threshold: 100 },
+  { name: "Preparing fictional comments", threshold: 25 },
+  { name: "Applying scripted labels", threshold: 60 },
+  { name: "Preparing demo insights", threshold: 85 },
+  { name: "Grouping fictional accounts", threshold: 100 },
 ];
 
 export default function ScanDetailPage() {
@@ -157,14 +157,14 @@ export default function ScanDetailPage() {
                 <span className="size-2 rounded-full bg-primary inline-block animate-ping mb-3" />
                 <CardTitle className="text-2xl font-bold">Simulated Safety Scan Running</CardTitle>
                 <CardDescription className="text-sm text-muted-foreground mt-1">
-                  Analyzing published Page comments for harassment and repeat accounts.
+                  Preparing fictional comments and scripted classifications. No Facebook comments are fetched and no AI inference is performed.
                 </CardDescription>
               </div>
 
               {/* Progress Bar & Counter */}
               <div className="space-y-2 mb-8">
                 <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                  <span>{scan?.processedComments || 0} comments analyzed</span>
+                  <span>{scan?.processedComments || 0} fictional comments processed</span>
                   <span className="font-semibold text-foreground">{progressPercent}%</span>
                 </div>
                 <Progress value={progressPercent} className="h-2.5" />
@@ -261,7 +261,7 @@ export default function ScanDetailPage() {
                 {/* Metric Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Card className="border p-4 bg-card shadow-xs">
-                    <p className="text-xs text-muted-foreground">Comments Analyzed</p>
+                    <p className="text-xs text-muted-foreground">Fictional Demo Comments</p>
                     <p className="text-2xl font-bold mt-1 text-foreground">
                       {scan.statistics?.totalComments || 0}
                     </p>
@@ -677,7 +677,7 @@ export default function ScanDetailPage() {
                   Safety Rationale
                 </label>
                 <p className="text-xs text-foreground leading-relaxed p-3 rounded-md border bg-background">
-                  {selectedFinding.explanation || "Classified according to community safety guidelines."}
+                  {selectedFinding.explanation || "Scripted demonstration classification; not a live AI determination."}
                 </p>
               </div>
 
